@@ -1,529 +1,534 @@
 import React from 'react';
 import { Bar } from 'react-chartjs-2';
 import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend,
+    Chart as ChartJS,
+    CategoryScale,
+    LinearScale,
+    BarElement,
+    PointElement,
+    LineElement,
+    Title,
+    Tooltip,
+    Legend,
 } from 'chart.js';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 
 ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend
+    CategoryScale,
+    LinearScale,
+    BarElement,
+    PointElement,
+    LineElement,
+    Title,
+    Tooltip,
+    Legend
 );
 
 const thaiMonths = [
-  'มค', 'กพ', 'มีค', 'เมย', 'พค', 'มิย',
-  'กค', 'สค', 'กย', 'ตค', 'พย', 'ธค'
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
 ];
 
 const COLORS = {
-  production: 'rgba(21, 128, 61, 0.8)',
-  forecast: 'rgba(54, 162, 235, 0.8)',
-  capacity: 'rgb(255, 99, 132)',
-  capacityOT: 'rgb(153, 102, 255)',
-  textColor: '#4A4A4A',
-  gridColor: 'rgba(200, 200, 200, 0.3)',
-  titleColor: '#2C3E50',
-  barBorderColor: 'rgba(0, 0, 0, 1)',
+    production: 'rgba(21, 128, 61, 0.8)',
+    forecast: 'rgba(54, 162, 235, 0.8)',
+    capacity: 'rgb(255, 99, 132)',
+    capacityOT: 'rgb(153, 102, 255)',
+    textColor: '#4A4A4A',
+    gridColor: 'rgba(200, 200, 200, 0.3)',
+    titleColor: '#2C3E50',
+    barBorderColor: 'rgba(0, 0, 0, 1)',
 };
 
 const sumDailyValues = (dailyArray) => dailyArray?.reduce((sum, entry) => sum + entry.value, 0) || 0;
 
+const getDailyValue = (dailyArray, day) => {
+    const entry = dailyArray?.find(d => d.day === day);
+    return entry ? entry.value : 0;
+};
+
 const getMonthYearLabel = (month, year) => {
-  const buddhistYear = year + 543;
-  const yearSuffix = String(buddhistYear).slice(2);
-  return `${thaiMonths[month]} ${yearSuffix}`;
+    const yearSuffix = String(year).slice(2);
+    return `${thaiMonths[month]} ${yearSuffix}`;
 };
 
-const getCommonChartOptions = (modelName, maxCapacity, isPdf = false) => ({
-  responsive: true,
-  maintainAspectRatio: false,
-  plugins: {
-    legend: {
-      position: 'bottom',
-      labels: {
-        color: COLORS.textColor,
-        font: {
-          size: isPdf ? 8 : 12,
+const getCommonChartOptions = (modelName, maxCapacity, isPdf = false, numLabels = 1, isDailyReport = false) => ({
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+        legend: {
+            position: 'bottom',
+            labels: {
+                color: COLORS.textColor,
+                font: {
+                    size: isPdf ? 8 : 12,
+                },
+                boxWidth: isPdf ? 8 : 40,
+            },
         },
-        boxWidth: isPdf ? 8 : 40,
-      },
-    },
-    title: {
-      display: true,
-      text: modelName,
-      color: COLORS.titleColor,
-      font: {
-        size: isPdf ? 12 : 16,
-        weight: 'bold',
-      },
-      padding: {
-        bottom: isPdf ? 3 : 10,
-      }
-    },
-    tooltip: {
-      callbacks: {
-        label: function(context) {
-          let label = context.dataset.label || '';
-          if (label) {
-            label += ': ';
-          }
-          if (context.parsed.y !== null) {
-            label += new Intl.NumberFormat('en-US').format(context.parsed.y);
-          }
-          return label;
+        title: {
+            display: true,
+            color: COLORS.titleColor,
+            font: {
+                size: isPdf ? 12 : 16,
+                weight: 'bold',
+            },
+            padding: {
+                top: isPdf ? 5 : 10,
+                bottom: isPdf ? 10 : 20,
+            }
+        },
+        tooltip: {
+            callbacks: {
+                label: function(context) {
+                    let label = context.dataset.label || '';
+                    if (label) {
+                        label += ': ';
+                    }
+                    if (context.parsed.y !== null) {
+                        label += new Intl.NumberFormat('en-US').format(context.parsed.y);
+                    }
+                    return label;
+                }
+            },
+            bodyFont: {
+                size: isPdf ? 10 : 12
+            },
+            titleFont: {
+                size: isPdf ? 10 : 12
+            }
         }
-      },
-      bodyFont: {
-        size: isPdf ? 10 : 12
-      },
-      titleFont: {
-        size: isPdf ? 10 : 12
-      }
+    },
+    devicePixelRatio: isPdf ? 2 : undefined,
+    scales: {
+        x: {
+            grid: {
+                display: false,
+            },
+            ticks: {
+                color: COLORS.titleColor,
+                font: {
+                    size: isPdf ? (isDailyReport ? (numLabels > 20 ? 5 : 6) : (numLabels > 6 ? 6 : 8)) : 12,
+                    weight: 'bold',
+                },
+                maxRotation: isPdf ? (isDailyReport ? 90 : (numLabels > 6 ? 90 : 45)) : 0,
+                minRotation: isPdf ? (isDailyReport ? 90 : (numLabels > 6 ? 90 : 45)) : 0
+            },
+        },
+        y: {
+            beginAtZero: true,
+            grid: {
+                color: COLORS.gridColor,
+                drawOnChartArea: true,
+            },
+            ticks: {
+                color: COLORS.textColor,
+                callback: function(value) {
+                    return new Intl.NumberFormat('en-US').format(value);
+                },
+                font: {
+                    size: isPdf ? 8 : 10,
+                },
+            },
+            max: maxCapacity > 0 ? maxCapacity : undefined,
+        },
+    },
+});
+
+const getChartData = (labels, productionData, forecastData, capacityData, capacityOtData, isDailyReport = false) => {
+    const datasets = [];
+
+    const allDataAreZero =
+        productionData.every(val => val === 0) &&
+        forecastData.every(val => val === 0) &&
+        capacityData.every(val => val === 0) &&
+        capacityOtData.every(val => val === 0);
+
+    if (allDataAreZero) {
+        return {
+            labels: labels,
+            datasets: []
+        };
     }
-  },
-  devicePixelRatio: isPdf ? 2 : undefined,
-  scales: {
-    x: {
-      grid: {
-        display: false,
-      },
-      ticks: {
-        color: COLORS.titleColor,
-        font: {
-          size: isPdf ? 8 : 12,
-          weight: 'bold',
-        },
-        maxRotation: isPdf ? 45 : 0,
-        minRotation: isPdf ? 45 : 0
-      },
-    },
-    y: {
-      beginAtZero: true,
-      grid: {
-        color: COLORS.gridColor,
-        drawOnChartArea: true,
-      },
-      ticks: {
-        color: COLORS.textColor,
-        callback: function(value) {
-          return new Intl.NumberFormat('en-US').format(value);
-        },
-        font: {
-          size: isPdf ? 8 : 10,
-        },
-      },
-      max: maxCapacity,
-    },
-  },
-});
 
-const getChartData = (labels, productionData, forecastData, capacityData, capacityOtData) => ({
-  labels,
-  datasets: [
-    {
-      type: 'bar',
-      label: 'Production',
-      backgroundColor: COLORS.production,
-      borderColor: 'transparent',
-      borderWidth: 1,
-      data: productionData,
-      order: 2,
-      barPercentage: 0.8,
-      categoryPercentage: 0.8,
-    },
-    {
-      type: 'bar',
-      label: 'Forecast',
-      backgroundColor: COLORS.forecast,
-      borderColor: 'transparent',
-      borderWidth: 1,
-      data: forecastData,
-      order: 2,
-      barPercentage: 0.8,
-      categoryPercentage: 0.8,
-    },
-    {
-      type: 'line',
-      label: 'Capacity',
-      borderColor: COLORS.capacity,
-      backgroundColor: COLORS.capacity,
-      borderWidth: 2,
-      fill: false,
-      data: capacityData,
-      tension: 0.1,
-      pointRadius: 3,
-      pointBackgroundColor: COLORS.capacity,
-      order: 1,
-    },
-    {
-      type: 'line',
-      label: 'Capacity + OT',
-      borderColor: COLORS.capacityOT,
-      backgroundColor: COLORS.capacityOT,
-      borderWidth: 2,
-      fill: false,
-      data: capacityOtData,
-      tension: 0.1,
-      pointRadius: 3,
-      pointBackgroundColor: COLORS.capacityOT,
-      order: 1,
-    },
-  ],
-});
+    if (productionData.some(val => val !== 0)) {
+        datasets.push({
+            type: 'bar',
+            label: 'Production',
+            backgroundColor: COLORS.production,
+            borderColor: 'transparent',
+            borderWidth: 1,
+            data: productionData,
+            order: 2,
+            barPercentage: 0.8,
+            categoryPercentage: 0.8,
+        });
+    }
 
-const ProductionDataTable = ({ modelName, modelData }) => {
-  const tableHeaders = [];
-  const tableRows = {
-    'Forecast': [],
-    'Capacity': [],
-    'Capacity + OT': [],
-    'Production': []
-  };
+    if (forecastData.some(val => val !== 0)) {
+        datasets.push({
+            type: 'bar',
+            label: 'Forecast',
+            backgroundColor: COLORS.forecast,
+            borderColor: 'transparent',
+            borderWidth: 1,
+            data: forecastData,
+            order: 2,
+            barPercentage: 0.8,
+            categoryPercentage: 0.8,
+        });
+    }
 
-  const sortedMonthlyData = [...modelData].sort((a, b) => {
-    if (a.year !== b.year) return a.year - b.year;
-    return a.month - b.month;
-  });
+    if (capacityData.some(val => val !== 0)) {
+        datasets.push({
+            type: 'line',
+            label: 'Capacity',
+            borderColor: COLORS.capacity,
+            backgroundColor: COLORS.capacity,
+            borderWidth: 2,
+            fill: false,
+            data: capacityData,
+            tension: 0.1,
+            pointRadius: 1.6,
+            pointBackgroundColor: COLORS.capacity,
+            order: 1,
+        });
+    }
 
-  sortedMonthlyData.forEach(monthlyEntry => {
-    tableHeaders.push(getMonthYearLabel(monthlyEntry.month, monthlyEntry.year));
-    tableRows['Forecast'].push(sumDailyValues(monthlyEntry.data?.Forecast));
-    tableRows['Capacity'].push(sumDailyValues(monthlyEntry.data?.Capacity));
-    tableRows['Capacity + OT'].push(sumDailyValues(monthlyEntry.data?.["Capacity + OT"]));
-    tableRows['Production'].push(sumDailyValues(monthlyEntry.data?.Production));
-  });
+    if (capacityOtData.some(val => val !== 0)) {
+        datasets.push({
+            type: 'line',
+            label: 'Capacity + OT',
+            borderColor: COLORS.capacityOT,
+            backgroundColor: COLORS.capacityOT,
+            borderWidth: 2,
+            fill: false,
+            data: capacityOtData,
+            tension: 0.1,
+            pointRadius: 1.6,
+            pointBackgroundColor: COLORS.capacityOT,
+            order: 1,
+        });
+    }
 
-  return (
-    <div className="overflow-x-auto">
-      <table className="min-w-full divide-y divide-gray-200">
-        <thead className="bg-gray-50">
-          <tr>
-            <th scope="col" className="px-3 py-2 text-left text-sm font-bold text-gray-700 uppercase tracking-wider">
-              Status / Month
-            </th>
-            {tableHeaders.map((header, idx) => (
-              <th key={idx} scope="col" className="px-3 py-2 text-center text-sm font-bold text-gray-700 uppercase tracking-wider">
-                {header}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody className="bg-white divide-y divide-gray-200">
-          {Object.keys(tableRows).map(rowName => (
-            <tr key={rowName}>
-              <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900">
-                {rowName}
-              </td>
-              {tableRows[rowName].map((value, idx) => (
-                <td key={idx} className="px-3 py-2 whitespace-nowrap text-sm text-gray-700 text-center">
-                  {new Intl.NumberFormat('en-US').format(value)}
-                </td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-};
-
-const ModelDataVisualization = ({ model }) => {
-  const labels = [];
-  const productionData = [];
-  const forecastData = [];
-  const capacityData = [];
-  const capacityOtData = [];
-
-  const sortedMonthlyData = [...model.data].sort((a, b) => {
-    if (a.year !== b.year) return a.year - b.year;
-    return a.month - b.month;
-  });
-
-  sortedMonthlyData.forEach(monthlyEntry => {
-    labels.push(getMonthYearLabel(monthlyEntry.month, monthlyEntry.year));
-    productionData.push(sumDailyValues(monthlyEntry.data?.Production));
-    forecastData.push(sumDailyValues(monthlyEntry.data?.Forecast));
-    capacityData.push(sumDailyValues(monthlyEntry.data?.Capacity));
-    capacityOtData.push(sumDailyValues(monthlyEntry.data?.["Capacity + OT"]));
-  });
-
-  const chartConfig = getChartData(labels, productionData, forecastData, capacityData, capacityOtData);
-  const chartOptions = getCommonChartOptions(model.name, model.maxCapacity);
-
-  return (
-    <div className="bg-white p-2 shadow-lg border-2 border-black w-full sm:w-[calc(100%-1rem)] md:w-[calc(50%-1rem)] lg:w-[calc(33.33%-1rem)] min-w-[300px]">
-      <ProductionDataTable modelName={model.name} modelData={model.data} />
-      <div className="h-[300px] mt-4">
-        <Bar data={chartConfig} options={chartOptions} />
-      </div>
-    </div>
-  );
+    return {
+        labels,
+        datasets,
+    };
 };
 
 export const generateReportPdf = async (allProductions, selectedMonth, selectedYear) => {
-  const tempDiv = document.createElement('div');
-  tempDiv.style.position = 'absolute';
-  tempDiv.style.left = '-9999px';
-  tempDiv.style.width = '210mm';
-  document.body.appendChild(tempDiv);
+    const tempDiv = document.createElement('div');
+    tempDiv.style.width = '210mm';
+    tempDiv.style.margin = '20px auto';
+    document.body.appendChild(tempDiv);
 
-  const filteredAndSortedProductions = allProductions
-    .filter(plantEntry =>
-      plantEntry.models.some(model =>
-        model.data.some(monthlyData =>
-          monthlyData.year === selectedYear && monthlyData.month === selectedMonth
-        )
-      )
-    )
-    .map(plantEntry => ({
-      ...plantEntry,
-      models: plantEntry.models.map(model => ({
-        ...model,
-        data: model.data.filter(monthlyData =>
-          monthlyData.year === selectedYear && monthlyData.month === selectedMonth
-        )
-      })).filter(model => model.data.length > 0)
-    })).filter(plantEntry => plantEntry.models.length > 0)
-    .sort((a, b) => a.plant.localeCompare(b.plant, 'th', { sensitivity: 'base' }));
-
-  let htmlContent = `
-    <div style="background-color: #ffffff; color: #333333; padding: 5mm; font-family: 'Inter', sans-serif;">
-      <h1 style="font-size: 20px; font-weight: bold; text-align: center; color: #1e40af; margin-bottom: 10px;">
-        สรุปการผลิต Production, Forecast, Capacity, and Capacity + OT
-      </h1>
-  `;
-
-  if (filteredAndSortedProductions && filteredAndSortedProductions.length > 0) {
-    filteredAndSortedProductions.forEach((plantEntry) => {
-      htmlContent += `
-          <div style="margin-bottom: 15px;">
-            <h2 style="font-size: 16px; font-weight: bold; text-align: center; color: #1d4ed8; margin-top: 15px; margin-bottom: 8px;">
-              ${plantEntry.plant}
-            </h2>
-            <div style="display: flex; flex-wrap: wrap; justify-content: space-around; align-items: flex-start; row-gap: 5mm; column-gap: 3mm;">
-      `;
-      if (plantEntry.models && plantEntry.models.length > 0) {
-        plantEntry.models.forEach((model) => {
-          if (model.data && model.data.length > 0) {
-            const monthlyEntry = model.data[0];
-            if (!monthlyEntry) return;
-
-            const labels = [getMonthYearLabel(monthlyEntry.month, monthlyEntry.year)];
-            const productionData = [sumDailyValues(monthlyEntry.data?.Production)];
-            const forecastData = [sumDailyValues(monthlyEntry.data?.Forecast)];
-            const capacityData = [sumDailyValues(monthlyEntry.data?.Capacity)];
-            const capacityOtData = [sumDailyValues(monthlyEntry.data?.["Capacity + OT"])];
-
-            const chartConfig = getChartData(labels, productionData, forecastData, capacityData, capacityOtData);
-            const chartOptions = getCommonChartOptions(model.name, model.maxCapacity, true);
-
-            const tableHeaders = [getMonthYearLabel(monthlyEntry.month, monthlyEntry.year)];
-            const tableRows = {
-              'Forecast': [sumDailyValues(monthlyEntry.data?.Forecast)],
-              'Capacity': [sumDailyValues(monthlyEntry.data?.Capacity)],
-              'Capacity + OT': [sumDailyValues(monthlyEntry.data?.["Capacity + OT"])],
-              'Production': [sumDailyValues(monthlyEntry.data?.Production)]
-            };
-
-            const safeModelName = model.name.replace(/[^a-zA-Z0-9-_]/g, '');
-            const chartId = `modelChart-${safeModelName}`;
-
-            htmlContent += `
-                <div style="background-color: #ffffff; padding: 3px; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05); border: 1px solid #eee; width: 63mm; height: 90mm; display: flex; flex-direction: column; justify-content: space-between; overflow: hidden; border-radius: 4px;">
-                  <div style="overflow-x: auto; flex-shrink: 0; max-height: 40mm;">
-                    <table style="min-width: 100%; border-collapse: collapse;">
-                      <thead style="background-color: #f0f0f0;">
-                        <tr>
-                          <th style="padding: 3px; text-align: left; font-size: 8px; font-weight: bold; color: #374151; text-transform: uppercase;">
-                            Status / Month
-                          </th>
-                          ${tableHeaders.map(header => `
-                            <th style="padding: 3px; text-align: center; font-size: 8px; font-weight: bold; color: #374151; text-transform: uppercase;">
-                              ${header}
-                            </th>
-                          `).join('')}
-                        </tr>
-                      </thead>
-                      <tbody style="background-color: #ffffff; border-top: 1px solid #e5e7eb;">
-                        ${Object.keys(tableRows).map(rowName => `
-                          <tr>
-                            <td style="padding: 3px; white-space: nowrap; font-size: 8px; font-weight: 500; color: #111827;">
-                              ${rowName}
-                            </td>
-                            ${tableRows?.[rowName]?.map((value, idx) => `
-                              <td key={idx} style="padding: 3px; white-space: nowrap; font-size: 8px; color: #374151; text-align: center;">
-                                ${new Intl.NumberFormat('en-US').format(value)}
-                              </td>
-                            `).join('')}
-                          </tr>
-                        `).join('')}
-                      </tbody>
-                    </table>
-                  </div>
-                  <div style="flex-grow: 1; margin-top: 2px; display: flex; justify-content: center; align-items: center; overflow: hidden;">
-                    <canvas id="${chartId}" width="360" height="240" style="max-width: 100%; max-height: 100%;"></canvas>
-                  </div>
-                </div>
-            `;
-          }
-        });
-      } else {
-        htmlContent += `<p style="color: #6b7280; font-size: 12px; text-align: center; width: 100%;">ไม่มีข้อมูลรุ่นสำหรับสายการผลิตนี้</p>`;
-      }
-      htmlContent += `</div></div>`;
-    });
-  } else {
-    htmlContent += `<p style="color: #6b7280; font-size: 14px; text-align: center;">ไม่มีข้อมูลการผลิตที่จะแสดงแผนภูมิสำหรับเดือนที่เลือก</p>`;
-  }
-  htmlContent += `</div>`;
-
-  tempDiv.innerHTML = htmlContent;
-
-  filteredAndSortedProductions.forEach(plantEntry => {
-    plantEntry.models.forEach(model => {
-      if (model.data && model.data.length > 0) {
-        const safeModelName = model.name.replace(/[^a-zA-Z0-9-_]/g, '');
-        const chartId = `modelChart-${safeModelName}`;
-        const canvas = tempDiv.querySelector(`#${chartId}`);
-        if (canvas) {
-          const monthlyEntry = model.data[0];
-          if (!monthlyEntry) return;
-
-          const labels = [getMonthYearLabel(monthlyEntry.month, monthlyEntry.year)];
-          const productionData = [sumDailyValues(monthlyEntry.data?.Production)];
-          const forecastData = [sumDailyValues(monthlyEntry.data?.Forecast)];
-          const capacityData = [sumDailyValues(monthlyEntry.data?.Capacity)];
-          const capacityOtData = [sumDailyValues(monthlyEntry.data?.["Capacity + OT"])];
-
-          const chartConfig = getChartData(labels, productionData, forecastData, capacityData, capacityOtData);
-          const chartOptions = getCommonChartOptions(model.name, model.maxCapacity, true);
-
-          try {
-            new ChartJS(canvas, {
-              type: 'bar',
-              data: chartConfig,
-              options: chartOptions,
-            });
-          } catch (chartError) {
-            console.error(`Error initializing Chart.js for model ${model.name}:`, chartError);
-            if (canvas) {
-              const ctx = canvas.getContext('2d');
-              if (ctx) {
-                ctx.font = '10px Arial';
-                ctx.fillStyle = 'red';
-                ctx.fillText('Chart Error', 10, 50);
-              }
-            }
-          }
+    const groupedProductionsByPlant = allProductions.reduce((acc, item) => {
+        if (!acc[item.plant]) {
+            acc[item.plant] = [];
         }
-      }
-    });
-  });
+        acc[item.plant].push(item);
+        return acc;
+    }, {});
 
-  await new Promise(resolve => setTimeout(resolve, 1500));
+    const sortedPlantNames = Object.keys(groupedProductionsByPlant).sort((a, b) => a.localeCompare(b, 'th', { sensitivity: 'base' }));
 
-  const pdf = new jsPDF('p', 'mm', 'a4');
+    const pdf = new jsPDF('p', 'mm', 'a4');
+    const pageWidth = pdf.internal.pageSize.getWidth();
 
-  try {
-    const canvas = await html2canvas(tempDiv, {
-      scale: 3,
-      useCORS: true,
-      windowWidth: tempDiv.scrollWidth,
-      windowHeight: tempDiv.scrollHeight,
-      devicePixelRatio: window.devicePixelRatio * 2,
-    });
-    const imgData = canvas.toDataURL('image/png');
+    const isDailyReport = selectedMonth !== -1;
+    const daysInMonth = isDailyReport ? new Date(selectedYear, selectedMonth + 1, 0).getDate() : 0;
 
-    const pdfWidth = pdf.internal.pageSize.getWidth();
-    const pdfHeight = pdf.internal.pageSize.getHeight();
-    const imgWidth = pdfWidth;
-    const imgHeight = (canvas.height * imgWidth) / canvas.width;
+    const modelsPerPage = isDailyReport ? 3 : 6;
+    const gridColumnCount = isDailyReport ? 1 : 2;
+    const chartHeightPdf = '80mm'; 
 
-    let currentY = 0;
-    pdf.addImage(imgData, 'PNG', 0, currentY, imgWidth, imgHeight);
+    let pageIndex = 0;
 
-    let remainingHeight = imgHeight;
-    while (remainingHeight > pdfHeight) {
-      pdf.addPage();
-      currentY -= pdfHeight;
-      remainingHeight -= pdfHeight;
-      pdf.addImage(imgData, 'PNG', 0, currentY, imgWidth, imgHeight);
+    for (const plantName of sortedPlantNames) {
+        const plantModels = [];
+        groupedProductionsByPlant[plantName].forEach(plantEntry => {
+            if (plantEntry.models && Array.isArray(plantEntry.models)) {
+                const sortedModels = [...plantEntry.models].sort((a, b) => a.name.localeCompare(b.name));
+                plantModels.push(...sortedModels.map(model => ({ model, plant: plantEntry.plant, plantId: plantEntry.id })));
+            }
+        });
+
+        const plantModelChunks = [];
+        for (let i = 0; i < plantModels.length; i += modelsPerPage) {
+            plantModelChunks.push(plantModels.slice(i, i + modelsPerPage));
+        }
+
+        let firstChunkForPlant = true;
+        for (const modelChunk of plantModelChunks) {
+            if (pageIndex > 0 || !firstChunkForPlant) {
+                pdf.addPage();
+            }
+            firstChunkForPlant = false;
+            pageIndex++;
+
+            let htmlContent = `
+                <div style="background-color: #ffffff; color: #333333; padding: 5mm; font-family: 'Inter', sans-serif; width: 210mm; box-sizing: border-box;">
+                    <h1 style="font-size: 16px; font-weight: bold; text-align: center; color: #1e40af; margin-bottom: 8px;">
+                        Summary Report Production, Forecast, Capacity, and Capacity + OT
+                    </h1>
+                    <h2 style="font-size: 14px; font-weight: bold; text-align: center; color: #333; margin-top: 5mm; margin-bottom: 5mm;">
+                        Plant: ${plantName}
+                    </h2>
+                    <br />
+                    <div style="display: grid; grid-template-columns: repeat(${gridColumnCount}, 1fr); gap: 5mm; width: 100%;">
+            `;
+
+            const chartPromises = [];
+
+            for (const { model, plant, plantId } of modelChunk) {
+                const safeModelData = (model && Array.isArray(model.data)) ? model.data : [];
+
+                const productionDataForChart = [];
+                const forecastDataForChart = [];
+                const capacityDataForChart = [];
+                const capacityOtDataForChart = [];
+                let chartLabels = [];
+
+                let tableHeaders;
+                let tableRows = {
+                    'Forecast': [],
+                    'Capacity': [],
+                    'Capacity + OT': [],
+                    'Production': []
+                };
+
+                if (isDailyReport) {
+                    tableHeaders = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+                    chartLabels = tableHeaders;
+                    
+                    const monthlyEntry = safeModelData.find(data =>
+                        data.year === selectedYear && data.month === selectedMonth
+                    );
+
+                    for (let day = 1; day <= daysInMonth; day++) {
+                        const dailyForecast = getDailyValue(monthlyEntry?.data?.Forecast, day);
+                        const dailyCapacity = getDailyValue(monthlyEntry?.data?.Capacity, day);
+                        const dailyCapacityOT = getDailyValue(monthlyEntry?.data?.["Capacity + OT"], day);
+                        const dailyProduction = getDailyValue(monthlyEntry?.data?.Production, day);
+
+                        tableRows['Forecast'].push(dailyForecast);
+                        tableRows['Capacity'].push(dailyCapacity);
+                        tableRows['Capacity + OT'].push(dailyCapacityOT);
+                        tableRows['Production'].push(dailyProduction);
+
+                        productionDataForChart.push(dailyProduction);
+                        forecastDataForChart.push(dailyForecast);
+                        capacityDataForChart.push(dailyCapacity);
+                        capacityOtDataForChart.push(dailyCapacityOT);
+                    }
+
+                } else {
+                    let monthsToIncludeForModel = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+                    tableHeaders = monthsToIncludeForModel.map(monthNum => getMonthYearLabel(monthNum, selectedYear));
+                    chartLabels = tableHeaders;
+
+                    monthsToIncludeForModel.forEach(monthNum => {
+                        const monthlyEntry = safeModelData.find(data =>
+                            data.year === selectedYear && data.month === monthNum
+                        );
+
+                        const monthlyProdSum = monthlyEntry?.data?.Production ? sumDailyValues(monthlyEntry.data.Production) : 0;
+                        const monthlyForecastSum = monthlyEntry?.data?.Forecast ? sumDailyValues(monthlyEntry.data.Forecast) : 0;
+                        const monthlyCapacitySum = monthlyEntry?.data?.Capacity ? sumDailyValues(monthlyEntry.data.Capacity) : 0;
+                        const monthlyCapacityOTSum = monthlyEntry?.data?.["Capacity + OT"] ? sumDailyValues(monthlyEntry.data["Capacity + OT"]) : 0;
+                        
+                        productionDataForChart.push(monthlyProdSum);
+                        forecastDataForChart.push(monthlyForecastSum);
+                        capacityDataForChart.push(monthlyCapacitySum);
+                        capacityOtDataForChart.push(monthlyCapacityOTSum);
+                        
+                        tableRows['Forecast'].push(monthlyForecastSum);
+                        tableRows['Capacity'].push(monthlyCapacitySum);
+                        tableRows['Capacity + OT'].push(monthlyCapacityOTSum);
+                        tableRows['Production'].push(monthlyProdSum);
+                    });
+                }
+                
+                const chartConfig = getChartData(
+                    chartLabels,
+                    productionDataForChart,
+                    forecastDataForChart,
+                    capacityDataForChart,
+                    capacityOtDataForChart,
+                    isDailyReport
+                );
+                const chartOptions = getCommonChartOptions(model.name, model.maxCapacity, true, chartLabels.length, isDailyReport);
+
+                const safeModelName = model.name.replace(/[^a-zA-Z0-9-_]/g, '');
+                const chartId = `modelChart-${safeModelName}-${plantId}-${pageIndex}`;
+
+                htmlContent += `
+                    <div style="background-color: #ffffff; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05); border: 1px solid #eee; width: 100%; height: ${chartHeightPdf}; display: flex; flex-direction: column; justify-content: space-between; overflow: hidden; border-radius: 4px;">
+                        <div style="overflow-x: auto; flex-shrink: 0; max-height: ${isDailyReport ? '45mm' : '35mm'};">
+                            <table style="min-width: ${isDailyReport ? 'max-content' : '100%'}; border-collapse: collapse; table-layout: ${isDailyReport ? 'fixed' : 'auto'}; width: 100%;">
+                                <thead style="background-color: #f0f0f0;">
+                                    <tr>
+                                        <th style="padding: 2px; text-align: left; font-size: ${isDailyReport ? '4px' : '7px'}; font-weight: bold; color: #374151; text-transform: uppercase; white-space: nowrap; width: ${isDailyReport ? '30px' : '80px'};">
+                                            Status / ${isDailyReport ? 'Day' : 'Month'}
+                                        </th>
+                                        ${tableHeaders.map(header => `
+                                            <th style="padding: 2px; text-align: center; font-size: ${isDailyReport ? '4px' : '7px'}; font-weight: bold; color: #374151; white-space: nowrap; width: ${isDailyReport ? '18px' : 'auto'};">
+                                                ${header}
+                                            </th>
+                                        `).join('')}
+                                    </tr>
+                                </thead>
+                                <tbody style="background-color: #ffffff; border-top: 1px solid #e5e7eb;">
+                                    ${Object.keys(tableRows).map(rowName => `
+                                        <tr>
+                                            <td style="padding: 2px; white-space: nowrap; font-size: ${isDailyReport ? '4px' : '7px'}; font-weight: 500; color: #111827; word-wrap: break-word;">
+                                                ${rowName}
+                                            </td>
+                                            ${tableRows[rowName].map((value, idx) => `
+                                                <td key=${idx} style="padding: 2px; white-space: nowrap; font-size: ${isDailyReport ? '4px' : '7px'}; color: #374151; text-align: center; word-wrap: break-word;">
+                                                    ${new Intl.NumberFormat('en-US').format(value)}
+                                                </td>
+                                            `).join('')}
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                        <h3 style="font-size: 9px; font-weight: bold; text-align: center; margin-top: 2mm; color: #333;">${model.name}</h3>
+                        <div style="flex-grow: 1; display: flex; justify-content: center; align-items: center; overflow: hidden;">
+                            <canvas id="${chartId}" width="300" height="200" style="max-width: 100%; max-height: 100%; display: block;"></canvas>
+                        </div>
+                    </div>
+                `;
+            }
+
+            htmlContent += `</div></div>`;
+            tempDiv.innerHTML = htmlContent;
+
+            for (const { model, plant, plantId } of modelChunk) {
+                const safeModelName = model.name.replace(/[^a-zA-Z0-9-_]/g, '');
+                const chartId = `modelChart-${safeModelName}-${plantId}-${pageIndex}`;
+                const canvas = tempDiv.querySelector(`#${chartId}`);
+
+                if (canvas) {
+                    const safeModelData = (model && Array.isArray(model.data)) ? model.data : [];
+                    
+                    const productionDataForChart = [];
+                    const forecastDataForChart = [];
+                    const capacityDataForChart = [];
+                    const capacityOtDataForChart = [];
+                    let chartLabels = [];
+
+                    if (isDailyReport) {
+                        chartLabels = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+                        const monthlyEntry = safeModelData.find(data =>
+                            data.year === selectedYear && data.month === selectedMonth
+                        );
+                        for (let day = 1; day <= daysInMonth; day++) {
+                            productionDataForChart.push(getDailyValue(monthlyEntry?.data?.Production, day));
+                            forecastDataForChart.push(getDailyValue(monthlyEntry?.data?.Forecast, day));
+                            capacityDataForChart.push(getDailyValue(monthlyEntry?.data?.Capacity, day));
+                            capacityOtDataForChart.push(getDailyValue(monthlyEntry?.data?.["Capacity + OT"], day));
+                        }
+                    } else {
+                        let monthsToIncludeForModel = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+                        chartLabels = monthsToIncludeForModel.map(monthNum => getMonthYearLabel(monthNum, selectedYear));
+
+                        monthsToIncludeForModel.forEach(monthNum => {
+                            const monthlyEntry = safeModelData.find(data =>
+                                data.year === selectedYear && data.month === monthNum
+                            );
+                            productionDataForChart.push(monthlyEntry?.data?.Production ? sumDailyValues(monthlyEntry.data.Production) : 0);
+                            forecastDataForChart.push(monthlyEntry?.data?.Forecast ? sumDailyValues(monthlyEntry.data.Forecast) : 0);
+                            capacityDataForChart.push(monthlyEntry?.data?.Capacity ? sumDailyValues(monthlyEntry.data.Capacity) : 0);
+                            capacityOtDataForChart.push(monthlyEntry?.data?.["Capacity + OT"] ? sumDailyValues(monthlyEntry.data["Capacity + OT"]) : 0);
+                        });
+                    }
+
+                    const chartConfig = getChartData(
+                        chartLabels,
+                        productionDataForChart,
+                        forecastDataForChart,
+                        capacityDataForChart,
+                        capacityOtDataForChart,
+                        isDailyReport
+                    );
+                    const chartOptions = getCommonChartOptions(model.name, model.maxCapacity, true, chartLabels.length, isDailyReport);
+
+                    chartPromises.push(new Promise((resolveChart) => {
+                        try {
+                            const existingChart = ChartJS.getChart(canvas);
+                            if (existingChart) {
+                                existingChart.destroy();
+                            }
+                            
+                            const chartInstance = new ChartJS(canvas, {
+                                type: 'bar',
+                                data: chartConfig,
+                                options: {
+                                    ...chartOptions,
+                                    animation: {
+                                        duration: 0,
+                                        onComplete: () => resolveChart(),
+                                        onProgress: () => {}
+                                    }
+                                },
+                            });
+
+                            if (chartConfig.datasets.length === 0) {
+                                resolveChart();
+                            }
+
+                        } catch (chartError) {
+                            console.error(`Error initializing Chart.js for model ${model.name}:`, chartError);
+                            if (canvas) {
+                                const ctx = canvas.getContext('2d');
+                                if (ctx) {
+                                    ctx.font = '8px Arial';
+                                    ctx.fillStyle = 'red';
+                                    ctx.fillText('Chart Error', 10, 50);
+                                }
+                            }
+                            resolveChart();
+                        }
+                    }));
+                }
+            }
+
+            await Promise.all(chartPromises);
+
+            await new Promise(resolve => setTimeout(resolve, 500));
+
+            try {
+                const canvas = await html2canvas(tempDiv, {
+                    scale: 3,
+                    useCORS: true,
+                    windowWidth: tempDiv.scrollWidth,
+                    windowHeight: tempDiv.scrollHeight,
+                    logging: false,
+                    backgroundColor: '#ffffff' 
+                });
+                const imgData = canvas.toDataURL('image/png');
+
+                const imgWidth = pageWidth;
+                const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+                pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
+
+            } catch (error) {
+                console.error("Error generating PDF page:", error);
+            }
+        }
     }
 
-    pdf.save(`รายงานการผลิต_${thaiMonths[selectedMonth]}_${selectedYear + 543}.pdf`);
-  } catch (error) {
-    console.error("Error generating PDF:", error);
-  } finally {
-    document.body.removeChild(tempDiv);
-  }
+    try {
+        const fileNameMonthPart = selectedMonth === -1 ? 'Year' : thaiMonths[selectedMonth];
+        pdf.save(`NZT_Production_Report_${fileNameMonthPart}_${selectedYear + 543}.pdf`);
+    } catch (error) {
+        console.error("Error saving PDF:", error);
+    } finally {
+        document.body.removeChild(tempDiv);
+    }
 };
-
-function Report({ allProductions, selectedMonth, selectedYear }) {
-  const filteredAndSortedProductions = allProductions
-    .filter(plantEntry =>
-      plantEntry.models.some(model =>
-        model.data.some(monthlyData =>
-          monthlyData.year === selectedYear && monthlyData.month === selectedMonth
-        )
-      )
-    )
-    .map(plantEntry => ({
-      ...plantEntry,
-      models: plantEntry.models.map(model => ({
-        ...model,
-        data: model.data.filter(monthlyData =>
-          monthlyData.year === selectedYear && monthlyData.month === selectedMonth
-        )
-      })).filter(model => model.data.length > 0)
-    })).filter(plantEntry => plantEntry.models.length > 0)
-    .sort((a, b) => a.plant.localeCompare(b.plant, 'th', { sensitivity: 'base' }));
-
-  return (
-    <div className="min-h-screen bg-white text-gray-800 p-2 flex flex-col items-center padding lg:p-4">
-      <h1 className="text-xl font-extrabold text-center text-blue-800 mb-4 mt-2">
-        สรุปการผลิต Production, Forecast, Capacity, and Capacity + OT
-      </h1>
-      {filteredAndSortedProductions && filteredAndSortedProductions.length > 0 ? (
-        filteredAndSortedProductions.map((plantEntry, plantIndex) => (
-          <div key={plantIndex} className="w-full mb-8">
-            <h2 className="text-2xl font-bold text-center text-blue-700 my-6">
-              {plantEntry.plant}
-            </h2>
-            <div className="flex flex-wrap justify-center gap-4 w-full">
-              {plantEntry.models && plantEntry.models.length > 0 ? (
-                plantEntry.models.map((model, modelIndex) => (
-                  model.data && model.data.length > 0 && (
-                    <ModelDataVisualization key={modelIndex} model={model} />
-                  )
-                ))
-              ) : (
-                <p className="text-gray-600 text-base">
-                  ไม่มีข้อมูลรุ่นสำหรับสายการผลิตนี้
-                </p>
-              )}
-            </div>
-          </div>
-        ))
-      ) : (
-        <p className="text-gray-600 text-base">ไม่มีข้อมูลการผลิตที่จะแสดงแผนภูมิสำหรับเดือนที่เลือก</p>
-      )}
-    </div>
-  );
-}
-
-export default Report;

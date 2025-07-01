@@ -3,19 +3,26 @@ import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 
 const formatNumberWithCommas = (num) => {
+    if (num === null || num === undefined || String(num).trim() === '') {
+        return '';
+    }
     const cleanedNum = String(num).replace(/,/g, '');
     const numberValue = parseFloat(cleanedNum);
-    return cleanedNum.trim() === '' || isNaN(numberValue) ? num : numberValue.toLocaleString('en-US');
+    return isNaN(numberValue) ? cleanedNum : numberValue.toLocaleString('en-US');
 };
 
 const parseNumberFromFormattedString = (str) => {
+    if (str === null || str === undefined || String(str).trim() === '') {
+        return 0;
+    }
     const cleanedStr = String(str).replace(/,/g, '');
-    return parseInt(cleanedStr) || 0;
+    return parseInt(cleanedStr, 10) || 0;
 };
 
 const initialModel = {
     name: '',
     maxCapacity: '',
+    displayMaxCapacity: '',
     status: 'รอดำเนินการ',
     data: []
 };
@@ -24,7 +31,7 @@ function NewPlan({ onNavigate, user, userRole }) {
     const [plant, setPlant] = useState('');
     const [description, setDescription] = useState('');
     const [responsiblePerson, setResponsiblePerson] = useState('');
-    const [models, setModels] = useState([initialModel]);
+    const [models, setModels] = useState([{ ...initialModel }]);
 
     const [errors, setErrors] = useState({
         plant: false,
@@ -50,19 +57,19 @@ function NewPlan({ onNavigate, user, userRole }) {
     const handleModelChange = (index, field, value) => {
         const newModels = [...models];
         if (field === 'maxCapacity') {
-            newModels[index][field] = formatNumberWithCommas(value);
-            const rawValue = parseNumberFromFormattedString(value);
-            updateModelCapacityError(index, value.trim() === '' || isNaN(rawValue) || rawValue < 0);
+            const cleanedValue = value.replace(/\D/g, '');
+            newModels[index].maxCapacity = cleanedValue;
+            newModels[index].displayMaxCapacity = formatNumberWithCommas(cleanedValue);
+
+            const rawValue = parseNumberFromFormattedString(cleanedValue);
+            updateModelCapacityError(index, cleanedValue.trim() === '' || isNaN(rawValue) || rawValue < 0);
         } else {
             newModels[index][field] = value;
             if (field === 'name' && value.trim() !== '') {
-                updateError('models', models.some(m => m.name.trim() === ''));
+                updateError('models', newModels.some(m => m.name.trim() === ''));
             }
         }
         setModels(newModels);
-        if (newModels.length > 0 && newModels.every(m => m.name.trim() !== '')) {
-            updateError('models', false);
-        }
     };
 
     const addModel = () => {
@@ -95,6 +102,7 @@ function NewPlan({ onNavigate, user, userRole }) {
     const validateForm = () => {
         let isValid = true;
         let newModelMaxCapacityErrors = {};
+        let newModelNameErrors = false;
 
         if (plant.trim() === '') {
             updateError('plant', true);
@@ -119,8 +127,8 @@ function NewPlan({ onNavigate, user, userRole }) {
 
         models.forEach((model, index) => {
             if (model.name.trim() === '') {
+                newModelNameErrors = true;
                 isValid = false;
-                alert('โปรดระบุชื่อรุ่นให้ครบถ้วน');
             }
 
             const parsedCapacity = parseNumberFromFormattedString(model.maxCapacity);
@@ -130,10 +138,15 @@ function NewPlan({ onNavigate, user, userRole }) {
             }
         });
 
+        updateError('models', newModelNameErrors || models.length === 0);
+
         setErrors(prev => ({ ...prev, modelCapacities: newModelMaxCapacityErrors }));
 
         if (Object.keys(newModelMaxCapacityErrors).length > 0) {
             alert('โปรดระบุ "กำลังการผลิตสูงสุด" ของแต่ละรุ่นให้ถูกต้อง (ต้องเป็นตัวเลขที่ไม่ติดลบ)');
+        }
+        if (newModelNameErrors) {
+            alert('โปรดระบุชื่อรุ่นให้ครบถ้วน');
         }
 
         return isValid;
@@ -143,7 +156,6 @@ function NewPlan({ onNavigate, user, userRole }) {
         event.preventDefault();
 
         if (!validateForm()) {
-            alert('โปรดกรอกข้อมูลที่จำเป็นให้ครบถ้วนและถูกต้อง');
             return;
         }
 
@@ -175,7 +187,11 @@ function NewPlan({ onNavigate, user, userRole }) {
         plant.trim() !== '' &&
         responsiblePerson.trim() !== '' &&
         models.length > 0 &&
-        models.every(model => model.name.trim() !== '' && !errors.modelCapacities[models.indexOf(model)]);
+        models.every(model =>
+            model.name.trim() !== '' &&
+            parseNumberFromFormattedString(model.maxCapacity) >= 0 &&
+            model.maxCapacity.trim() !== ''
+        );
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-gray-900 text-white p-4">
@@ -275,15 +291,17 @@ function NewPlan({ onNavigate, user, userRole }) {
                                     id={`maxCapacity-${index}`}
                                     type="text"
                                     inputMode="numeric"
-                                    pattern="[0-9]*"
+                                    pattern="[0-9,]*"
                                     placeholder="เช่น 10,000"
-                                    value={model.maxCapacity}
+                                    value={model.displayMaxCapacity}
                                     onChange={(e) => handleModelChange(index, 'maxCapacity', e.target.value)}
-                                    onKeyPress={(e) => {
-                                        const charCode = e.which ? e.which : e.keyCode;
-                                        if (!(charCode >= 48 && charCode <= 57) && charCode !== 8 && charCode !== 37 && charCode !== 39) {
-                                            e.preventDefault();
-                                        }
+                                    onBlur={() => {
+                                        const rawValue = parseNumberFromFormattedString(model.displayMaxCapacity);
+                                        const newModels = [...models];
+                                        newModels[index].maxCapacity = String(rawValue);
+                                        newModels[index].displayMaxCapacity = formatNumberWithCommas(rawValue);
+                                        setModels(newModels);
+                                        updateModelCapacityError(index, String(rawValue).trim() === '' || isNaN(rawValue) || rawValue < 0);
                                     }}
                                     className={`p-2 rounded-lg border bg-gray-700 text-white w-full
                                         focus:outline-none focus:ring-2 focus:ring-emerald-500 placeholder-gray-400
@@ -292,7 +310,6 @@ function NewPlan({ onNavigate, user, userRole }) {
                                         [-moz-appearance:textfield]`}
                                     required
                                 />
-                                {errors.modelCapacities[index] && <p className="text-red-400 text-sm mt-1">โปรดระบุตัวเลขกำลังการผลิตสูงสุดที่ถูกต้อง</p>}
                             </div>
                             <button
                                 type="button"

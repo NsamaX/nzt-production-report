@@ -6,6 +6,7 @@ import SignIn from './page/sign_in';
 import Dashboard from './page/dashboard';
 import NewPlan from './page/new_plan';
 import Production from './page/production';
+import './App.css';
 
 function App() {
   const [currentPath, setCurrentPath] = useState(window.location.pathname);

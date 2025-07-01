@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { collection, query, orderBy, onSnapshot, addDoc, updateDoc, doc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
-import { generateReportPdf } from './Report';
+import { generateReportPdf } from './report';
 
 const thaiMonths = [
     'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
@@ -21,9 +21,10 @@ function Dashboard({ onNavigate, onLogout, user, userRole }) {
     const [isEditingNews, setIsEditingNews] = useState(false);
     const [currentNews, setCurrentNews] = useState({ title: '', message: '', id: null });
 
-    const [selectedMonth, setSelectedMonth] = useState(currentMonth);
+    const [selectedMonth, setSelectedMonth] = useState(-1);
     const [selectedYear, setSelectedYear] = useState(currentYear);
     const [availableDates, setAvailableDates] = useState({ months: [], years: [] });
+    const [loadingReport, setLoadingReport] = useState(false);
 
     const isAdmin = userRole === 'admin';
     const isManager = userRole === 'manager';
@@ -39,7 +40,7 @@ function Dashboard({ onNavigate, onLogout, user, userRole }) {
         const unsubscribeProductions = onSnapshot(productionsQuery, (snapshot) => {
             const productionsData = [];
             const yearsSet = new Set();
-            const monthsByYear = new Map();
+            const monthsSet = new Set();
 
             snapshot.forEach((doc) => {
                 const item = { id: doc.id, ...doc.data() };
@@ -48,10 +49,7 @@ function Dashboard({ onNavigate, onLogout, user, userRole }) {
                 item.models?.forEach(model => {
                     model.data?.forEach(monthlyData => {
                         yearsSet.add(monthlyData.year);
-                        if (!monthsByYear.has(monthlyData.year)) {
-                            monthsByYear.set(monthlyData.year, new Set());
-                        }
-                        monthsByYear.get(monthlyData.year).add(monthlyData.month);
+                        monthsSet.add(monthlyData.month);
                     });
                 });
             });
@@ -60,16 +58,32 @@ function Dashboard({ onNavigate, onLogout, user, userRole }) {
             setLoading(prev => ({ ...prev, productions: false }));
 
             const sortedYears = Array.from(yearsSet).sort((a, b) => a - b);
-            const initialYear = sortedYears.includes(currentYear) ? currentYear : sortedYears[sortedYears.length - 1] || currentYear;
-            
-            const monthsForInitialYear = Array.from(monthsByYear.get(initialYear) || []).sort((a, b) => a - b);
-            const initialMonth = monthsForInitialYear.includes(currentMonth) ? currentMonth : monthsForInitialYear[monthsForInitialYear.length - 1] || currentMonth;
+            const sortedMonths = Array.from(monthsSet).sort((a, b) => a - b);
+
+            let initialYear = currentYear;
+            if (sortedYears.length === 0) {
+                initialYear = currentYear;
+            } else {
+                if (!sortedYears.includes(currentYear)) {
+                    initialYear = sortedYears[sortedYears.length - 1];
+                }
+            }
+
+            let initialMonth = -1;
+            if (sortedMonths.includes(currentMonth)) {
+                initialMonth = currentMonth;
+            } else if (sortedMonths.length > 0) {
+                initialMonth = sortedMonths[sortedMonths.length - 1];
+            }
             
             setSelectedYear(initialYear);
             setSelectedMonth(initialMonth);
+
+            const monthsOptions = [-1, ...sortedMonths];
+
             setAvailableDates({
-                years: sortedYears,
-                months: monthsForInitialYear
+                years: sortedYears.length > 0 ? sortedYears : [currentYear],
+                months: monthsOptions
             });
 
         }, (error) => {
@@ -80,30 +94,7 @@ function Dashboard({ onNavigate, onLogout, user, userRole }) {
         return () => unsubscribeProductions();
     }, [currentMonth, currentYear]);
 
-    useEffect(() => {
-        if (productions.length > 0) {
-            const monthsForSelectedYear = new Set();
-            productions.forEach(item => {
-                item.models?.forEach(model => {
-                    model.data?.forEach(monthlyData => {
-                        if (monthlyData.year === selectedYear) {
-                            monthsForSelectedYear.add(monthlyData.month);
-                        }
-                    });
-                });
-            });
-            const sortedMonths = Array.from(monthsForSelectedYear).sort((a, b) => a - b);
-            setAvailableDates(prev => ({ ...prev, months: sortedMonths }));
 
-            if (!sortedMonths.includes(selectedMonth) && sortedMonths.length > 0) {
-                setSelectedMonth(sortedMonths[0]);
-            } else if (sortedMonths.length === 0) {
-                setSelectedMonth(currentMonth);
-            }
-        }
-    }, [selectedYear, productions, currentMonth, selectedMonth]);
-
-    // Fetch news data
     useEffect(() => {
         const newsQuery = query(collection(db, 'news'), orderBy('createdAt', 'desc'));
         const unsubscribeNews = onSnapshot(newsQuery, (snapshot) => {
@@ -181,15 +172,62 @@ function Dashboard({ onNavigate, onLogout, user, userRole }) {
         }
     };
 
+    const handleDeleteProduction = async (productionId) => {
+        if (!isAdmin) {
+            console.warn('คุณไม่มีสิทธิ์ในการลบรายการผลิตนี้');
+            alert('คุณไม่มีสิทธิ์ในการลบรายการผลิตนี้');
+            return;
+        }
+        if (!window.confirm("คุณแน่ใจหรือไม่ที่จะลบรายการผลิตนี้? ข้อมูลทั้งหมดที่เกี่ยวข้องจะถูกลบออกด้วย!")) return;
+        try {
+            await deleteDoc(doc(db, 'productions', productionId));
+            console.log('รายการผลิตถูกลบเรียบร้อยแล้ว!');
+        } catch (e) {
+            console.error("Error deleting production:", e);
+            alert('เกิดข้อผิดพลาดในการลบรายการผลิต: ' + e.message);
+        }
+    };
+
     const handleExportReport = async () => {
         if (productions.length === 0) {
             console.warn("ไม่มีข้อมูลการผลิตที่จะสร้างรายงาน.");
+            alert("ไม่มีข้อมูลการผลิตที่จะสร้างรายงาน โปรดเพิ่มข้อมูลการผลิตก่อน");
             return;
         }
-        await generateReportPdf(productions, selectedMonth, selectedYear);
+
+        setLoadingReport(true);
+        try {
+            const productionsForReport = productions.map(productionItem => {
+                const newProductionItem = JSON.parse(JSON.stringify(productionItem));
+
+                if (newProductionItem.models && Array.isArray(newProductionItem.models)) {
+                    newProductionItem.models = newProductionItem.models.map(model => {
+                        const safeModelData = Array.isArray(model?.data) ? model.data : [];
+
+                        let filteredMonthlyData = safeModelData.filter(d => d.year === selectedYear);
+
+                        if (selectedMonth !== -1) {
+                            filteredMonthlyData = filteredMonthlyData.filter(d => d.month === selectedMonth);
+                        }
+                        return { ...model, data: filteredMonthlyData };
+                    });
+                } else {
+                    newProductionItem.models = [];
+                }
+                return newProductionItem;
+            }).filter(pItem => pItem.models && pItem.models.length > 0);
+
+            await generateReportPdf(productionsForReport, selectedMonth, selectedYear);
+            console.log("Report generation complete and download initiated.");
+        } catch (error) {
+            console.error("Error generating report:", error);
+            alert("เกิดข้อผิดพลาดในการสร้างรายงาน: " + error.message);
+        } finally {
+            setLoadingReport(false);
+        }
     };
 
-    const getModelStatus = (modelData) => {
+    const getModelStatusColorClass = (modelData) => {
         const monthlyData = modelData?.find(data => data.year === currentYear && data.month === currentMonth);
         if (monthlyData && monthlyData.data) {
             const hasDataForToday = Object.values(monthlyData.data).some(
@@ -197,10 +235,12 @@ function Dashboard({ onNavigate, onLogout, user, userRole }) {
                     (dailyData) => dailyData.day === currentDay && dailyData.value !== 0 && dailyData.value !== null && dailyData.value !== undefined && String(dailyData.value).trim() !== ''
                 )
             );
-            return hasDataForToday ? "อัพเดทข้อมูลแล้ว" : "รอดำเนินการ";
+            return hasDataForToday ? 'text-green-400' : 'text-yellow-300';
         }
-        return "รอดำเนินการ";
+        return 'text-yellow-300';
     };
+
+    const hasProductionData = productions.length > 0;
 
     return (
         <div className="min-h-screen flex flex-col items-center justify-center bg-gray-900 text-white p-4 font-inter">
@@ -212,8 +252,8 @@ function Dashboard({ onNavigate, onLogout, user, userRole }) {
                     <button
                         onClick={onLogout}
                         className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg
-                                transition duration-300 ease-in-out transform hover:scale-105
-                                focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-gray-800"
+                                         transition duration-300 ease-in-out transform hover:scale-105
+                                         focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-gray-800"
                     >
                         ออกจากระบบ
                     </button>
@@ -251,7 +291,7 @@ function Dashboard({ onNavigate, onLogout, user, userRole }) {
                                 <button
                                     type="submit"
                                     className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-4 rounded-lg flex-grow
-                                    transition duration-300 ease-in-out transform hover:scale-105"
+                                         transition duration-300 ease-in-out transform hover:scale-105"
                                 >
                                     บันทึก
                                 </button>
@@ -259,7 +299,7 @@ function Dashboard({ onNavigate, onLogout, user, userRole }) {
                                     type="button"
                                     onClick={handleCancelEditNews}
                                     className="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg flex-grow
-                                    transition duration-300 ease-in-out transform hover:scale-105"
+                                         transition duration-300 ease-in-out transform hover:scale-105"
                                 >
                                     ยกเลิก
                                 </button>
@@ -298,14 +338,15 @@ function Dashboard({ onNavigate, onLogout, user, userRole }) {
                                                 )}
 
                                                 <h3 className="font-semibold text-purple-300 text-lg mb-2">{item.title}</h3>
+                                                <p className="text-gray-300 whitespace-pre-wrap">
+                                                    {item.message || item.messages?.join('\n') || 'ไม่มีเนื้อหา'}
+                                                </p>
+                                                <br />
                                                 {item.createdAt && (
                                                     <p className="text-gray-400 text-sm mb-2">
                                                         [{new Date(item.createdAt.seconds * 1000).toLocaleDateString('th-TH')}]
                                                     </p>
                                                 )}
-                                                <p className="text-gray-300 whitespace-pre-wrap">
-                                                    {item.message || item.messages?.join('\n') || 'ไม่มีเนื้อหา'}
-                                                </p>
                                             </li>
                                         ))
                                     ) : (
@@ -317,8 +358,8 @@ function Dashboard({ onNavigate, onLogout, user, userRole }) {
                                 <button
                                     onClick={() => handleEditNewsClick()}
                                     className="mt-4 bg-yellow-600 hover:bg-yellow-700 text-white font-bold py-2 px-4 rounded-lg w-full
-                                    transition duration-300 ease-in-out transform hover:scale-105
-                                    focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 focus:ring-offset-gray-800"
+                                         transition duration-300 ease-in-out transform hover:scale-105
+                                         focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 focus:ring-offset-gray-800"
                                 >
                                     เพิ่มประกาศใหม่
                                 </button>
@@ -338,10 +379,22 @@ function Dashboard({ onNavigate, onLogout, user, userRole }) {
                                     <div
                                         key={item.id}
                                         className="bg-gray-800 p-5 rounded-lg border border-gray-600 shadow-md
-                                        cursor-pointer hover:bg-gray-700 transition duration-200 ease-in-out"
+                                         cursor-pointer hover:bg-gray-700 transition duration-200 ease-in-out relative group"
                                         onClick={() => onNavigate('/production', item.id)}
                                     >
                                         <h3 className="text-xl font-bold text-emerald-300 mb-2">{item.plant}</h3>
+                                        {isAdmin && (
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleDeleteProduction(item.id);
+                                                }}
+                                                className="absolute top-3 right-3 bg-red-600 hover:bg-red-700 text-white text-sm font-bold py-1.5 px-3 rounded-md
+                                                opacity-0 group-hover:opacity-100 transition-opacity duration-200 transform hover:scale-105"
+                                            >
+                                                ลบ
+                                            </button>
+                                        )}
                                         <p className="text-gray-300 mb-1">
                                             <span className="font-semibold text-blue-300">ผู้รับผิดชอบ:</span> {item.responsiblePerson || 'ไม่ได้ระบุ'}
                                         </p>
@@ -352,9 +405,9 @@ function Dashboard({ onNavigate, onLogout, user, userRole }) {
                                                 <ul className="list-disc list-inside text-gray-400 space-y-1 ml-4">
                                                     {item.models.map((model, index) => (
                                                         <li key={index}>
-                                                            {model.name} (<span className={`font-medium ${getModelStatus(model.data) === "อัพเดทข้อมูลแล้ว" ? 'text-green-400' : 'text-yellow-300'}`}>
-                                                                {getModelStatus(model.data)}
-                                                            </span>)
+                                                            <span className={`font-medium ${getModelStatusColorClass(model.data)}`}>
+                                                                {model.name}
+                                                            </span>
                                                         </li>
                                                     ))}
                                                 </ul>
@@ -374,45 +427,62 @@ function Dashboard({ onNavigate, onLogout, user, userRole }) {
                         <>
                             <select
                                 id="report-month-select"
-                                className="bg-gray-700 text-white p-2 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 flex-1
-                                transition duration-300 ease-in-out transform hover:scale-105"
+                                className={`p-2 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 flex-1
+                                transition duration-300 ease-in-out transform hover:scale-105
+                                ${!hasProductionData ? 'bg-gray-600 text-gray-400' : 'bg-gray-700 text-white'}`}
                                 value={selectedMonth}
                                 onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
+                                disabled={!hasProductionData && selectedMonth !== -1 || loadingReport}
                             >
-                                {availableDates.months.map((monthNum) => (
-                                    <option key={`report-month-${monthNum}`} value={monthNum}>
-                                        {thaiMonths[monthNum]}
-                                    </option>
-                                ))}
+                                <option key="report-month--1" value={-1}>ทุกเดือน</option>
+                                {availableDates.months
+                                    .filter(monthNum => monthNum !== -1)
+                                    .map((monthNum) => (
+                                        <option key={`report-month-${monthNum}`} value={monthNum}>
+                                            {thaiMonths[monthNum]}
+                                        </option>
+                                    ))
+                                }
+                                {availableDates.months.length === 1 && availableDates.months[0] === -1 && productions.length === 0 &&
+                                    <option value="" disabled>ไม่มีข้อมูลเดือน</option>
+                                }
                             </select>
                             <select
                                 id="report-year-select"
-                                className="bg-gray-700 text-white p-2 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 flex-1
-                                transition duration-300 ease-in-out transform hover:scale-105"
+                                className={`p-2 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 flex-1
+                                transition duration-300 ease-in-out transform hover:scale-105
+                                ${!hasProductionData ? 'bg-gray-600 text-gray-400' : 'bg-gray-700 text-white'}`}
                                 value={selectedYear}
                                 onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+                                disabled={availableDates.years.length <= 1 && availableDates.years[0] === currentYear && !hasProductionData || loadingReport}
                             >
                                 {availableDates.years.map((year) => (
                                     <option key={`report-year-${year}`} value={year}>
                                         {year + 543}
                                     </option>
                                 ))}
+                                {!hasProductionData && <option value="" disabled>ไม่มีข้อมูลปี</option>}
                             </select>
                             <button
-                                className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-6
-                                rounded-lg transition duration-300 ease-in-out transform
-                                hover:scale-105 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 focus:ring-offset-gray-800 flex-1"
+                                className={`font-bold py-4 px-6 rounded-lg transition duration-300 ease-in-out transform flex-1
+                                ${hasProductionData || selectedMonth === -1 ? 'bg-blue-600 hover:bg-blue-700 hover:scale-105 focus:ring-blue-500' : 'bg-gray-500'}
+                                text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800`}
                                 onClick={handleExportReport}
+                                disabled={!hasProductionData && selectedMonth !== -1 || loadingReport}
                             >
-                                ส่งออกรายงาน
+                                {loadingReport ? 'กำลังสร้าง...' : 'ส่งออกรายงาน'}
                             </button>
                         </>
                     )}
                     {canAccessExcel && (
                         <button
-                            className="bg-green-600 hover:bg-green-700 text-white font-bold py-4 px-6
-                            rounded-lg transition duration-300 ease-in-out transform
-                            hover:scale-105 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 focus:ring-offset-gray-800 flex-1"
+                            className={`font-bold py-4 px-6 rounded-lg transition duration-300 ease-in-out transform flex-1
+                            ${!hasProductionData || loadingReport
+                                ? 'bg-gray-500 text-gray-300 cursor-not-allowed'
+                                : 'bg-green-600 hover:bg-green-700 hover:scale-105 focus:ring-green-500 focus:ring-offset-2 focus:ring-offset-gray-800'
+                            }
+                            text-white focus:outline-none focus:ring-2`}
+                            disabled={!hasProductionData || loadingReport}
                         >
                             ส่งออก Excel
                         </button>
@@ -423,6 +493,7 @@ function Dashboard({ onNavigate, onLogout, user, userRole }) {
                             rounded-lg transition duration-300 ease-in-out transform
                             hover:scale-105 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-gray-800 flex-1"
                             onClick={() => onNavigate('/new_plan')}
+                            disabled={loadingReport}
                         >
                             แผนการผลิต
                         </button>
