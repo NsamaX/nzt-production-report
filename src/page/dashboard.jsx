@@ -235,9 +235,9 @@ function Dashboard({ onNavigate, onLogout, user, userRole }) {
                     (dailyData) => dailyData.day === currentDay && dailyData.value !== 0 && dailyData.value !== null && dailyData.value !== undefined && String(dailyData.value).trim() !== ''
                 )
             );
-            return hasDataForToday ? 'text-green-400' : 'text-yellow-300';
+            return hasDataForToday ? 'text-green-400' : 'text-gray-400';
         }
-        return 'text-yellow-300';
+        return 'text-gray-400';
     };
 
     const hasProductionData = productions.length > 0;
