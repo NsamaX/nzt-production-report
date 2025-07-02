@@ -64,6 +64,7 @@ export const exportExcel = (productions, month, year) => {
         let row = 0;
 
         const headers = createHeaders(isDaily, monthDays, months);
+
         data.push([isDaily ? 'STATUS/DAY' : 'STATUS/MONTH', ...headers]);
         row++;
 
@@ -87,6 +88,7 @@ export const exportExcel = (productions, month, year) => {
         }
 
         const worksheet = XLSX.utils.aoa_to_sheet(data);
+
         worksheet['!cols'] = [{ wpx: 100 }];
         worksheet['!merges'] = merges;
 
@@ -98,5 +100,6 @@ export const exportExcel = (productions, month, year) => {
 
     const buffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
     const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8' });
+
     saveAs(blob, name);
 };

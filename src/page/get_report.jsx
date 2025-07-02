@@ -218,7 +218,7 @@ const getChartData = (labels, productionData, forecastData, capacityData, capaci
     };
 };
 
-export const generateReportPdf = async (allProductions, selectedMonth, selectedYear) => {
+export const getReport = async (allProductions, selectedMonth, selectedYear) => {
     const tempDiv = document.createElement('div');
     tempDiv.style.width = '210mm';
     tempDiv.style.margin = '20px auto';

@@ -122,14 +122,10 @@ function App() {
     }
 
     switch (currentPath) {
-        case '/':
-            return <SignIn onSignIn={handleSignInSuccess} />;
-        case '/dashboard':
-            return user ? <Dashboard onNavigate={handleNavigate} onLogout={handleLogout} user={user} userRole={userRole} /> : <SignIn onSignIn={handleSignInSuccess} />;
-        case '/new_plan':
-            return user ? <NewPlan onNavigate={handleNavigate} onLogout={handleLogout} user={user} userRole={userRole} /> : <SignIn onSignIn={handleSignInSuccess} />;
-        case '/production':
-            return user ? <Production productionId={productionIdFromUrl} onNavigate={handleNavigate} onLogout={handleLogout} user={user} userRole={userRole} /> : <SignIn onSignIn={handleSignInSuccess} />;
+        case '/':           return <SignIn onSignIn={handleSignInSuccess} />;
+        case '/dashboard':  return user ? <Dashboard onNavigate={handleNavigate} onLogout={handleLogout} user={user} userRole={userRole} /> : <SignIn onSignIn={handleSignInSuccess} />;
+        case '/new_plan':   return user ? <NewPlan onNavigate={handleNavigate} onLogout={handleLogout} user={user} userRole={userRole} /> : <SignIn onSignIn={handleSignInSuccess} />;
+        case '/production': return user ? <Production productionId={productionIdFromUrl} onNavigate={handleNavigate} onLogout={handleLogout} user={user} userRole={userRole} /> : <SignIn onSignIn={handleSignInSuccess} />;
         default:
             return (
                 <div className="min-h-screen flex items-center justify-center bg-gray-900 text-white p-4">

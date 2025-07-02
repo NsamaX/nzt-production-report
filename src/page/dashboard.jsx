@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { collection, query, orderBy, onSnapshot, addDoc, updateDoc, doc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
-import { generateReportPdf } from './report';
+import { getReport } from './get_report';
 import { exportExcel } from './export_excel';
 
 const thaiMonths = [
@@ -219,7 +219,7 @@ function Dashboard({ onNavigate, onLogout, user, userRole }) {
                 return newProductionItem;
             }).filter(pItem => pItem.models && pItem.models.length > 0);
 
-            await generateReportPdf(productionsForReport, selectedMonth, selectedYear);
+            await getReport(productionsForReport, selectedMonth, selectedYear);
             console.log("Report generation complete and download initiated.");
         } catch (error) {
             console.error("Error generating report:", error);
@@ -284,7 +284,135 @@ function Dashboard({ onNavigate, onLogout, user, userRole }) {
                         ออกจากระบบ
                     </button>
                 </div>
-
+                <div className="w-full bg-gray-700 p-6 rounded-lg border border-emerald-700">
+                    <h2 className="text-2xl font-bold text-blue-400 mb-4">รายการการผลิต</h2>
+                    {loading.productions ? (
+                        <p className="text-gray-400">กำลังโหลดข้อมูลการผลิต...</p>
+                    ) : (
+                        <div className="space-y-6">
+                            {productions.length > 0 ? (
+                                productions.map((item) => (
+                                    <div
+                                        key={item.id}
+                                        className="bg-gray-800 p-5 rounded-lg border border-gray-600 shadow-md
+                                            cursor-pointer hover:bg-gray-700 transition duration-200 ease-in-out relative group"
+                                        onClick={() => onNavigate('/production', item.id)}
+                                    >
+                                        <h3 className="text-xl font-bold text-emerald-300 mb-2">{item.plant}</h3>
+                                        {isAdmin && (
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleDeleteProduction(item.id);
+                                                }}
+                                                className="absolute top-3 right-3 bg-red-600 hover:bg-red-700 text-white text-sm font-bold py-1.5 px-3 rounded-md
+                                                opacity-0 group-hover:opacity-100 transition-opacity duration-200 transform hover:scale-105"
+                                            >
+                                                ลบ
+                                            </button>
+                                        )}
+                                        <p className="text-gray-300 mb-1">
+                                            <span className="font-semibold text-blue-300">ผู้รับผิดชอบ:</span> {item.responsiblePerson || 'ไม่ได้ระบุ'}
+                                        </p>
+                                        <p className="text-gray-300 mb-3">{item.description}</p>
+                                        {item.models && item.models.length > 0 && (
+                                            <>
+                                                <p className="font-semibold text-gray-300 mt-3 mb-1">รายการรุ่น:</p>
+                                                <ul className="list-disc list-inside text-gray-400 space-y-1 ml-4">
+                                                    {item.models.map((model, index) => (
+                                                        <li key={index}>
+                                                            <span className={`font-medium ${getModelStatusColorClass(model.data)}`}>
+                                                                {model.name}
+                                                            </span>
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            </>
+                                        )}
+                                    </div>
+                                ))
+                            ) : (
+                                <p className="text-gray-400">ยังไม่มีข้อมูลการผลิต</p>
+                            )}
+                        </div>
+                    )}
+                </div>
+                <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4 w-full justify-stretch mt-4">
+                    {canAccessReport && (
+                        <>
+                            <select
+                                id="report-month-select"
+                                className={`p-2 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 flex-1
+                                ${!hasProductionData ? 'bg-gray-600 text-gray-400' : 'bg-gray-700 text-white transition duration-300 ease-in-out transform hover:scale-105'}`}
+                                value={selectedMonth}
+                                onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
+                                disabled={!hasProductionData || loadingReport || loadingExcel}
+                            >
+                                <option key="report-month--1" value={-1}>ทุกเดือน</option>
+                                {availableDates.months
+                                    .filter(monthNum => monthNum !== -1)
+                                    .map((monthNum) => (
+                                        <option key={`report-month-${monthNum}`} value={monthNum}>
+                                            {thaiMonths[monthNum]}
+                                        </option>
+                                    ))
+                                }
+                                {availableDates.months.length === 1 && availableDates.months[0] === -1 && productions.length === 0 &&
+                                    <option value="" disabled>ไม่มีข้อมูลเดือน</option>
+                                }
+                            </select>
+                            <select
+                                id="report-year-select"
+                                className={`p-2 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 flex-1
+                                ${!hasProductionData ? 'bg-gray-600 text-gray-400' : 'bg-gray-700 text-white transition duration-300 ease-in-out transform hover:scale-105'}`}
+                                value={selectedYear}
+                                onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+                                disabled={availableDates.years.length <= 1 && availableDates.years[0] === currentYear && !hasProductionData || loadingReport || loadingExcel} // Disabled เมื่อกำลังโหลด Excel ด้วย
+                            >
+                                {availableDates.years.map((year) => (
+                                    <option key={`report-year-${year}`} value={year}>
+                                        {year + 543}
+                                    </option>
+                                ))}
+                                {!hasProductionData && <option value="" disabled>ไม่มีข้อมูลปี</option>}
+                            </select>
+                            <button
+                                className={`font-bold py-4 px-6 rounded-lg transition duration-300 ease-in-out transform flex-1
+                                ${hasProductionData && !loadingReport && !loadingExcel ? 'bg-blue-600 hover:bg-blue-700 hover:scale-105 focus:ring-blue-500' : 'bg-gray-500'}
+                                text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800`}
+                                onClick={handleExportReport}
+                                disabled={!hasProductionData || loadingReport || loadingExcel}
+                            >
+                                {loadingReport ? 'กำลังสร้าง...' : 'ส่งออกรายงาน'}
+                            </button>
+                        </>
+                    )}
+                    {canAccessExcel && (
+                        <button
+                            className={`font-bold py-4 px-6 rounded-lg transition duration-300 ease-in-out transform flex-1
+                            ${hasProductionData && !loadingReport && !loadingExcel
+                                ? 'bg-green-600 hover:bg-green-700 hover:scale-105 focus:ring-green-500 focus:ring-offset-2 focus:ring-offset-gray-800'
+                                : 'bg-gray-500 text-gray-300'
+                            }
+                            text-white focus:outline-none focus:ring-2`}
+                            onClick={handleExportExcel}
+                            disabled={!hasProductionData || loadingReport || loadingExcel}
+                        >
+                            {loadingExcel ? 'กำลังส่งออก...' : 'ส่งออก Excel'}
+                        </button>
+                    )}
+                    {canAccessNewPlan && (
+                        <button
+                            className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-4 px-6
+                            rounded-lg transition duration-300 ease-in-out transform
+                            hover:scale-105 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-gray-800 flex-1"
+                            onClick={() => onNavigate('/new_plan')}
+                            disabled={loadingReport || loadingExcel}
+                        >
+                            แผนการผลิต
+                        </button>
+                    )}
+                </div>
                 <div className="w-full bg-gray-700 p-6 rounded-lg border border-emerald-700">
                     <h2 className="text-2xl font-bold text-blue-400 mb-4">ประกาศสำคัญ</h2>
                     {isEditingNews && canManageNews ? (
@@ -391,137 +519,6 @@ function Dashboard({ onNavigate, onLogout, user, userRole }) {
                                 </button>
                             )}
                         </>
-                    )}
-                </div>
-
-                <div className="w-full bg-gray-700 p-6 rounded-lg border border-emerald-700">
-                    <h2 className="text-2xl font-bold text-blue-400 mb-4">รายการการผลิต</h2>
-                    {loading.productions ? (
-                        <p className="text-gray-400">กำลังโหลดข้อมูลการผลิต...</p>
-                    ) : (
-                        <div className="space-y-6">
-                            {productions.length > 0 ? (
-                                productions.map((item) => (
-                                    <div
-                                        key={item.id}
-                                        className="bg-gray-800 p-5 rounded-lg border border-gray-600 shadow-md
-                                            cursor-pointer hover:bg-gray-700 transition duration-200 ease-in-out relative group"
-                                        onClick={() => onNavigate('/production', item.id)}
-                                    >
-                                        <h3 className="text-xl font-bold text-emerald-300 mb-2">{item.plant}</h3>
-                                        {isAdmin && (
-                                            <button
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    handleDeleteProduction(item.id);
-                                                }}
-                                                className="absolute top-3 right-3 bg-red-600 hover:bg-red-700 text-white text-sm font-bold py-1.5 px-3 rounded-md
-                                                opacity-0 group-hover:opacity-100 transition-opacity duration-200 transform hover:scale-105"
-                                            >
-                                                ลบ
-                                            </button>
-                                        )}
-                                        <p className="text-gray-300 mb-1">
-                                            <span className="font-semibold text-blue-300">ผู้รับผิดชอบ:</span> {item.responsiblePerson || 'ไม่ได้ระบุ'}
-                                        </p>
-                                        <p className="text-gray-300 mb-3">{item.description}</p>
-                                        {item.models && item.models.length > 0 && (
-                                            <>
-                                                <p className="font-semibold text-gray-300 mt-3 mb-1">รายการรุ่น:</p>
-                                                <ul className="list-disc list-inside text-gray-400 space-y-1 ml-4">
-                                                    {item.models.map((model, index) => (
-                                                        <li key={index}>
-                                                            <span className={`font-medium ${getModelStatusColorClass(model.data)}`}>
-                                                                {model.name}
-                                                            </span>
-                                                        </li>
-                                                    ))}
-                                                </ul>
-                                            </>
-                                        )}
-                                    </div>
-                                ))
-                            ) : (
-                                <p className="text-gray-400">ยังไม่มีข้อมูลการผลิต</p>
-                            )}
-                        </div>
-                    )}
-                </div>
-
-                <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4 w-full justify-stretch mt-4">
-                    {canAccessReport && (
-                        <>
-                            <select
-                                id="report-month-select"
-                                className={`p-2 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 flex-1
-                                ${!hasProductionData ? 'bg-gray-600 text-gray-400' : 'bg-gray-700 text-white transition duration-300 ease-in-out transform hover:scale-105'}`}
-                                value={selectedMonth}
-                                onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
-                                disabled={!hasProductionData || loadingReport || loadingExcel}
-                            >
-                                <option key="report-month--1" value={-1}>ทุกเดือน</option>
-                                {availableDates.months
-                                    .filter(monthNum => monthNum !== -1)
-                                    .map((monthNum) => (
-                                        <option key={`report-month-${monthNum}`} value={monthNum}>
-                                            {thaiMonths[monthNum]}
-                                        </option>
-                                    ))
-                                }
-                                {availableDates.months.length === 1 && availableDates.months[0] === -1 && productions.length === 0 &&
-                                    <option value="" disabled>ไม่มีข้อมูลเดือน</option>
-                                }
-                            </select>
-                            <select
-                                id="report-year-select"
-                                className={`p-2 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 flex-1
-                                ${!hasProductionData ? 'bg-gray-600 text-gray-400' : 'bg-gray-700 text-white transition duration-300 ease-in-out transform hover:scale-105'}`}
-                                value={selectedYear}
-                                onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-                                disabled={availableDates.years.length <= 1 && availableDates.years[0] === currentYear && !hasProductionData || loadingReport || loadingExcel} // Disabled เมื่อกำลังโหลด Excel ด้วย
-                            >
-                                {availableDates.years.map((year) => (
-                                    <option key={`report-year-${year}`} value={year}>
-                                        {year + 543}
-                                    </option>
-                                ))}
-                                {!hasProductionData && <option value="" disabled>ไม่มีข้อมูลปี</option>}
-                            </select>
-                            <button
-                                className={`font-bold py-4 px-6 rounded-lg transition duration-300 ease-in-out transform flex-1
-                                ${hasProductionData && !loadingReport && !loadingExcel ? 'bg-blue-600 hover:bg-blue-700 hover:scale-105 focus:ring-blue-500' : 'bg-gray-500'}
-                                text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800`}
-                                onClick={handleExportReport}
-                                disabled={!hasProductionData || loadingReport || loadingExcel}
-                            >
-                                {loadingReport ? 'กำลังสร้าง...' : 'ส่งออกรายงาน'}
-                            </button>
-                        </>
-                    )}
-                    {canAccessExcel && (
-                        <button
-                            className={`font-bold py-4 px-6 rounded-lg transition duration-300 ease-in-out transform flex-1
-                            ${hasProductionData && !loadingReport && !loadingExcel
-                                ? 'bg-green-600 hover:bg-green-700 hover:scale-105 focus:ring-green-500 focus:ring-offset-2 focus:ring-offset-gray-800'
-                                : 'bg-gray-500 text-gray-300'
-                            }
-                            text-white focus:outline-none focus:ring-2`}
-                            onClick={handleExportExcel}
-                            disabled={!hasProductionData || loadingReport || loadingExcel}
-                        >
-                            {loadingExcel ? 'กำลังส่งออก...' : 'ส่งออก Excel'}
-                        </button>
-                    )}
-                    {canAccessNewPlan && (
-                        <button
-                            className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-4 px-6
-                            rounded-lg transition duration-300 ease-in-out transform
-                            hover:scale-105 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-gray-800 flex-1"
-                            onClick={() => onNavigate('/new_plan')}
-                            disabled={loadingReport || loadingExcel}
-                        >
-                            แผนการผลิต
-                        </button>
                     )}
                 </div>
             </div>
