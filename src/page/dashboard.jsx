@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { collection, query, orderBy, onSnapshot, addDoc, updateDoc, doc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import { generateReportPdf } from './report';
+import { exportExcel } from './export_excel';
 
 const thaiMonths = [
     'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
@@ -25,6 +26,7 @@ function Dashboard({ onNavigate, onLogout, user, userRole }) {
     const [selectedYear, setSelectedYear] = useState(currentYear);
     const [availableDates, setAvailableDates] = useState({ months: [], years: [] });
     const [loadingReport, setLoadingReport] = useState(false);
+    const [loadingExcel, setLoadingExcel] = useState(false);
 
     const isAdmin = userRole === 'admin';
     const isManager = userRole === 'manager';
@@ -227,6 +229,30 @@ function Dashboard({ onNavigate, onLogout, user, userRole }) {
         }
     };
 
+    const handleExportExcel = async () => {
+        if (!canAccessExcel) {
+            console.warn('คุณไม่มีสิทธิ์ในการส่งออก Excel');
+            alert('คุณไม่มีสิทธิ์ในการส่งออก Excel');
+            return;
+        }
+        if (productions.length === 0) {
+            console.warn("ไม่มีข้อมูลการผลิตที่จะส่งออก Excel.");
+            alert("ไม่มีข้อมูลการผลิตที่จะส่งออก Excel โปรดเพิ่มข้อมูลการผลิตก่อน");
+            return;
+        }
+
+        setLoadingExcel(true);
+        try {
+            await exportExcel(productions, selectedMonth, selectedYear);
+            console.log("Excel export complete and download initiated.");
+        } catch (error) {
+            console.error("Error exporting Excel:", error);
+            alert("เกิดข้อผิดพลาดในการส่งออก Excel: " + error.message);
+        } finally {
+            setLoadingExcel(false);
+        }
+    };
+
     const getModelStatusColorClass = (modelData) => {
         const monthlyData = modelData?.find(data => data.year === currentYear && data.month === currentMonth);
         if (monthlyData && monthlyData.data) {
@@ -252,8 +278,8 @@ function Dashboard({ onNavigate, onLogout, user, userRole }) {
                     <button
                         onClick={onLogout}
                         className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg
-                                         transition duration-300 ease-in-out transform hover:scale-105
-                                         focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-gray-800"
+                                     transition duration-300 ease-in-out transform hover:scale-105
+                                     focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-gray-800"
                     >
                         ออกจากระบบ
                     </button>
@@ -291,7 +317,7 @@ function Dashboard({ onNavigate, onLogout, user, userRole }) {
                                 <button
                                     type="submit"
                                     className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-4 rounded-lg flex-grow
-                                         transition duration-300 ease-in-out transform hover:scale-105"
+                                             transition duration-300 ease-in-out transform hover:scale-105"
                                 >
                                     บันทึก
                                 </button>
@@ -299,7 +325,7 @@ function Dashboard({ onNavigate, onLogout, user, userRole }) {
                                     type="button"
                                     onClick={handleCancelEditNews}
                                     className="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg flex-grow
-                                         transition duration-300 ease-in-out transform hover:scale-105"
+                                             transition duration-300 ease-in-out transform hover:scale-105"
                                 >
                                     ยกเลิก
                                 </button>
@@ -358,8 +384,8 @@ function Dashboard({ onNavigate, onLogout, user, userRole }) {
                                 <button
                                     onClick={() => handleEditNewsClick()}
                                     className="mt-4 bg-yellow-600 hover:bg-yellow-700 text-white font-bold py-2 px-4 rounded-lg w-full
-                                         transition duration-300 ease-in-out transform hover:scale-105
-                                         focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 focus:ring-offset-gray-800"
+                                             transition duration-300 ease-in-out transform hover:scale-105
+                                             focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 focus:ring-offset-gray-800"
                                 >
                                     เพิ่มประกาศใหม่
                                 </button>
@@ -379,7 +405,7 @@ function Dashboard({ onNavigate, onLogout, user, userRole }) {
                                     <div
                                         key={item.id}
                                         className="bg-gray-800 p-5 rounded-lg border border-gray-600 shadow-md
-                                         cursor-pointer hover:bg-gray-700 transition duration-200 ease-in-out relative group"
+                                            cursor-pointer hover:bg-gray-700 transition duration-200 ease-in-out relative group"
                                         onClick={() => onNavigate('/production', item.id)}
                                     >
                                         <h3 className="text-xl font-bold text-emerald-300 mb-2">{item.plant}</h3>
@@ -431,7 +457,7 @@ function Dashboard({ onNavigate, onLogout, user, userRole }) {
                                 ${!hasProductionData ? 'bg-gray-600 text-gray-400' : 'bg-gray-700 text-white transition duration-300 ease-in-out transform hover:scale-105'}`}
                                 value={selectedMonth}
                                 onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
-                                disabled={!hasProductionData || loadingReport}
+                                disabled={!hasProductionData || loadingReport || loadingExcel}
                             >
                                 <option key="report-month--1" value={-1}>ทุกเดือน</option>
                                 {availableDates.months
@@ -452,7 +478,7 @@ function Dashboard({ onNavigate, onLogout, user, userRole }) {
                                 ${!hasProductionData ? 'bg-gray-600 text-gray-400' : 'bg-gray-700 text-white transition duration-300 ease-in-out transform hover:scale-105'}`}
                                 value={selectedYear}
                                 onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-                                disabled={availableDates.years.length <= 1 && availableDates.years[0] === currentYear && !hasProductionData || loadingReport}
+                                disabled={availableDates.years.length <= 1 && availableDates.years[0] === currentYear && !hasProductionData || loadingReport || loadingExcel} // Disabled เมื่อกำลังโหลด Excel ด้วย
                             >
                                 {availableDates.years.map((year) => (
                                     <option key={`report-year-${year}`} value={year}>
@@ -463,10 +489,10 @@ function Dashboard({ onNavigate, onLogout, user, userRole }) {
                             </select>
                             <button
                                 className={`font-bold py-4 px-6 rounded-lg transition duration-300 ease-in-out transform flex-1
-                                ${hasProductionData ? 'bg-blue-600 hover:bg-blue-700 hover:scale-105 focus:ring-blue-500' : 'bg-gray-500'}
+                                ${hasProductionData && !loadingReport && !loadingExcel ? 'bg-blue-600 hover:bg-blue-700 hover:scale-105 focus:ring-blue-500' : 'bg-gray-500'}
                                 text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800`}
                                 onClick={handleExportReport}
-                                disabled={!hasProductionData || loadingReport}
+                                disabled={!hasProductionData || loadingReport || loadingExcel}
                             >
                                 {loadingReport ? 'กำลังสร้าง...' : 'ส่งออกรายงาน'}
                             </button>
@@ -475,14 +501,15 @@ function Dashboard({ onNavigate, onLogout, user, userRole }) {
                     {canAccessExcel && (
                         <button
                             className={`font-bold py-4 px-6 rounded-lg transition duration-300 ease-in-out transform flex-1
-                            ${true
-                                ? 'bg-gray-500 text-gray-300'
-                                : 'bg-green-600 hover:bg-green-700 hover:scale-105 focus:ring-green-500 focus:ring-offset-2 focus:ring-offset-gray-800'
+                            ${hasProductionData && !loadingReport && !loadingExcel
+                                ? 'bg-green-600 hover:bg-green-700 hover:scale-105 focus:ring-green-500 focus:ring-offset-2 focus:ring-offset-gray-800'
+                                : 'bg-gray-500 text-gray-300'
                             }
                             text-white focus:outline-none focus:ring-2`}
-                            disabled={true}
+                            onClick={handleExportExcel}
+                            disabled={!hasProductionData || loadingReport || loadingExcel}
                         >
-                            ส่งออก Excel
+                            {loadingExcel ? 'กำลังส่งออก...' : 'ส่งออก Excel'}
                         </button>
                     )}
                     {canAccessNewPlan && (
@@ -491,7 +518,7 @@ function Dashboard({ onNavigate, onLogout, user, userRole }) {
                             rounded-lg transition duration-300 ease-in-out transform
                             hover:scale-105 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-gray-800 flex-1"
                             onClick={() => onNavigate('/new_plan')}
-                            disabled={loadingReport}
+                            disabled={loadingReport || loadingExcel}
                         >
                             แผนการผลิต
                         </button>

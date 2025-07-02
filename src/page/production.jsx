@@ -516,7 +516,7 @@ function Production({ onNavigate }) {
                                       onKeyDown={handleKeyDown}
                                       onKeyPress={handleKeyPress}
                                       className={`
-                                        w-full h-full bg-blue-600 text-white text-center border-none focus:outline-none focus:ring-0
+                                        w-full h-full bg-emerald-600 text-white text-center border-none focus:outline-none focus:ring-0
                                         [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none
                                         [-moz-appearance:textfield]
                                         pr-6
