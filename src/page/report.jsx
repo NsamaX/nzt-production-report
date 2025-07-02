@@ -242,7 +242,7 @@ export const generateReportPdf = async (allProductions, selectedMonth, selectedY
 
     const modelsPerPage = isDailyReport ? 3 : 6;
     const gridColumnCount = isDailyReport ? 1 : 2;
-    const chartHeightPdf = '80mm'; 
+    const chartHeightPdf = '80mm';
 
     let pageIndex = 0;
 
@@ -302,7 +302,7 @@ export const generateReportPdf = async (allProductions, selectedMonth, selectedY
                 if (isDailyReport) {
                     tableHeaders = Array.from({ length: daysInMonth }, (_, i) => i + 1);
                     chartLabels = tableHeaders;
-                    
+
                     const monthlyEntry = safeModelData.find(data =>
                         data.year === selectedYear && data.month === selectedMonth
                     );
@@ -338,19 +338,19 @@ export const generateReportPdf = async (allProductions, selectedMonth, selectedY
                         const monthlyForecastSum = monthlyEntry?.data?.Forecast ? sumDailyValues(monthlyEntry.data.Forecast) : 0;
                         const monthlyCapacitySum = monthlyEntry?.data?.Capacity ? sumDailyValues(monthlyEntry.data.Capacity) : 0;
                         const monthlyCapacityOTSum = monthlyEntry?.data?.["Capacity + OT"] ? sumDailyValues(monthlyEntry.data["Capacity + OT"]) : 0;
-                        
+
                         productionDataForChart.push(monthlyProdSum);
                         forecastDataForChart.push(monthlyForecastSum);
                         capacityDataForChart.push(monthlyCapacitySum);
                         capacityOtDataForChart.push(monthlyCapacityOTSum);
-                        
+
                         tableRows['Forecast'].push(monthlyForecastSum);
                         tableRows['Capacity'].push(monthlyCapacitySum);
                         tableRows['Capacity + OT'].push(monthlyCapacityOTSum);
                         tableRows['Production'].push(monthlyProdSum);
                     });
                 }
-                
+
                 const chartConfig = getChartData(
                     chartLabels,
                     productionDataForChart,
@@ -370,11 +370,11 @@ export const generateReportPdf = async (allProductions, selectedMonth, selectedY
                             <table style="min-width: ${isDailyReport ? 'max-content' : '100%'}; border-collapse: collapse; table-layout: ${isDailyReport ? 'fixed' : 'auto'}; width: 100%;">
                                 <thead style="background-color: #f0f0f0;">
                                     <tr>
-                                        <th style="padding: 2px; text-align: left; font-size: ${isDailyReport ? '4px' : '7px'}; font-weight: bold; color: #374151; text-transform: uppercase; white-space: nowrap; width: ${isDailyReport ? '30px' : '80px'};">
-                                            Status / ${isDailyReport ? 'Day' : 'Month'}
+                                        <th style="padding: 2px; text-align: left; font-size: 5px; font-weight: bold; color: #374151; text-transform: uppercase; white-space: nowrap; width: ${isDailyReport ? '30px' : '60px'};">
+                                            Status
                                         </th>
                                         ${tableHeaders.map(header => `
-                                            <th style="padding: 2px; text-align: center; font-size: ${isDailyReport ? '4px' : '7px'}; font-weight: bold; color: #374151; white-space: nowrap; width: ${isDailyReport ? '18px' : 'auto'};">
+                                            <th style="padding: 2px; text-align: center; font-size: 5px; font-weight: bold; color: #374151; white-space: nowrap; width: ${isDailyReport ? '18px' : 'auto'};">
                                                 ${header}
                                             </th>
                                         `).join('')}
@@ -383,11 +383,11 @@ export const generateReportPdf = async (allProductions, selectedMonth, selectedY
                                 <tbody style="background-color: #ffffff; border-top: 1px solid #e5e7eb;">
                                     ${Object.keys(tableRows).map(rowName => `
                                         <tr>
-                                            <td style="padding: 2px; white-space: nowrap; font-size: ${isDailyReport ? '4px' : '7px'}; font-weight: 500; color: #111827; word-wrap: break-word;">
+                                            <td style="padding: 2px; white-space: nowrap; font-size: 5px; font-weight: 500; color: #111827; word-wrap: break-word;">
                                                 ${rowName}
                                             </td>
                                             ${tableRows[rowName].map((value, idx) => `
-                                                <td key=${idx} style="padding: 2px; white-space: nowrap; font-size: ${isDailyReport ? '4px' : '7px'}; color: #374151; text-align: center; word-wrap: break-word;">
+                                                <td key=${idx} style="padding: 2px; white-space: nowrap; font-size: 5px; color: #374151; text-align: center; word-wrap: break-word;">
                                                     ${new Intl.NumberFormat('en-US').format(value)}
                                                 </td>
                                             `).join('')}
@@ -414,7 +414,7 @@ export const generateReportPdf = async (allProductions, selectedMonth, selectedY
 
                 if (canvas) {
                     const safeModelData = (model && Array.isArray(model.data)) ? model.data : [];
-                    
+
                     const productionDataForChart = [];
                     const forecastDataForChart = [];
                     const capacityDataForChart = [];
@@ -463,7 +463,7 @@ export const generateReportPdf = async (allProductions, selectedMonth, selectedY
                             if (existingChart) {
                                 existingChart.destroy();
                             }
-                            
+
                             const chartInstance = new ChartJS(canvas, {
                                 type: 'bar',
                                 data: chartConfig,
@@ -508,7 +508,7 @@ export const generateReportPdf = async (allProductions, selectedMonth, selectedY
                     windowWidth: tempDiv.scrollWidth,
                     windowHeight: tempDiv.scrollHeight,
                     logging: false,
-                    backgroundColor: '#ffffff' 
+                    backgroundColor: '#ffffff'
                 });
                 const imgData = canvas.toDataURL('image/png');
 

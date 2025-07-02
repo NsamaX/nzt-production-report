@@ -1,18 +1,18 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { doc, getDoc, updateDoc } from 'firebase/firestore'; 
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 
 function Production({ onNavigate }) {
   const [selectedProduction, setSelectedProduction] = useState(null);
   const [dailyMetrics, setDailyMetrics] = useState({});
-  const [editingModelName, setEditingModelName] = useState(null); 
+  const [editingModelName, setEditingModelName] = useState(null);
   const [editingCellKey, setEditingCellKey] = useState(null);
   const [loadingProductionData, setLoadingProductionData] = useState(true);
 
   const [availableMonths, setAvailableMonths] = useState([]);
   const [availableYears, setAvailableYears] = useState([]);
 
-  const [originalDailyMetrics, setOriginalDailyMetrics] = useState({}); 
+  const [originalDailyMetrics, setOriginalDailyMetrics] = useState({});
 
   const inputRef = useRef(null);
 
@@ -62,47 +62,19 @@ function Production({ onNavigate }) {
           const fetchedProduction = { id: docSnap.id, ...docSnap.data() };
           setSelectedProduction(fetchedProduction);
 
-          const yearsSet = new Set();
-          const monthsForYear = new Map();
-
-          if (fetchedProduction.models) {
-            fetchedProduction.models.forEach(model => {
-              if (model.data) {
-                model.data.forEach(monthlyData => {
-                  yearsSet.add(monthlyData.year);
-                  if (!monthsForYear.has(monthlyData.year)) {
-                    monthsForYear.set(monthlyData.year, new Set());
-                  }
-                  monthsForYear.get(monthlyData.year).add(monthlyData.month);
-                });
-              }
-            });
+          const currentYear = today.getFullYear();
+          const startYear = 2020;
+          const years = [];
+          for (let year = startYear; year <= currentYear; year++) {
+            years.push(year);
           }
-
-          const sortedYears = Array.from(yearsSet).sort((a, b) => a - b);
-          setAvailableYears(sortedYears);
+          setAvailableYears(years.sort((a, b) => a - b));
 
           let initialSelectedYear = today.getFullYear();
           let initialSelectedMonth = today.getMonth();
 
-          if (sortedYears.length > 0) {
-              if (sortedYears.includes(today.getFullYear())) {
-                  initialSelectedYear = today.getFullYear();
-              } else {
-                  initialSelectedYear = sortedYears[sortedYears.length - 1];
-              }
-
-              const monthsForCurrentSelectedYear = Array.from(monthsForYear.get(initialSelectedYear) || []).sort((a,b) => a - b);
-              if (monthsForCurrentSelectedYear.includes(today.getMonth())) {
-                  initialSelectedMonth = today.getMonth();
-              } else if (monthsForCurrentSelectedYear.length > 0) {
-                  initialSelectedMonth = monthsForCurrentSelectedYear[monthsForCurrentSelectedYear.length - 1];
-              }
-          }
-          
           setSelectedYear(initialSelectedYear);
           setSelectedMonth(initialSelectedMonth);
-          setAvailableMonths(Array.from(monthsForYear.get(initialSelectedYear) || []).sort((a, b) => a - b));
 
           const initialDailyMetrics = {};
           fetchedProduction.models.forEach(model => {
@@ -146,31 +118,24 @@ function Production({ onNavigate }) {
   }, [onNavigate]);
 
   useEffect(() => {
-    if (selectedProduction && !loadingProductionData) {
-      const monthsForYearSet = new Set();
-      selectedProduction.models.forEach(model => {
-        if (model.data) {
-          model.data.forEach(monthlyData => {
-            if (monthlyData.year === selectedYear) {
-              monthsForYearSet.add(monthlyData.month);
-            }
-          });
-        }
-      });
-      const sortedMonths = Array.from(monthsForYearSet).sort((a, b) => a - b);
-      setAvailableMonths(sortedMonths);
+    const currentYear = today.getFullYear();
+    const currentMonth = today.getMonth();
 
-      if (!sortedMonths.includes(selectedMonth)) {
-        if (sortedMonths.length > 0) {
-          setSelectedMonth(sortedMonths[0]);
-        } else {
-          setSelectedMonth(today.getMonth());
-        }
+    if (selectedYear === currentYear) {
+      const months = [];
+      for (let i = 0; i <= currentMonth; i++) {
+        months.push(i);
       }
-    } else if (!selectedProduction || availableYears.length === 0) {
-        setAvailableMonths([today.getMonth()]);
+      setAvailableMonths(months);
+    } else {
+      const months = [];
+      for (let i = 0; i < 12; i++) {
+        months.push(i);
+      }
+      setAvailableMonths(months);
     }
-  }, [selectedYear, selectedProduction, loadingProductionData, today]);
+  }, [selectedYear, today]);
+
 
   useEffect(() => {
     if (selectedProduction && !loadingProductionData) {
@@ -209,17 +174,17 @@ function Production({ onNavigate }) {
   const formatNumberWithCommas = (num) => {
     const numberValue = parseFloat(num);
     if (num === 0) {
-        return '0';
+      return '0';
     }
-    if (isNaN(numberValue) || num === null || num === undefined || String(num).trim() === '') { 
+    if (isNaN(numberValue) || num === null || num === undefined || String(num).trim() === '') {
       return '';
     }
     return numberValue.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
   };
 
-  const handleMetricChange = (modelName, statusType, dayIndex, value) => { 
+  const handleMetricChange = (modelName, statusType, dayIndex, value) => {
     const cleanedValue = value.replace(/,/g, '');
-    const parsedValue = cleanedValue === '' ? '' : parseInt(cleanedValue) || 0; 
+    const parsedValue = cleanedValue === '' ? '' : parseInt(cleanedValue) || 0;
 
     setDailyMetrics(prevMetrics => {
       const newMetrics = { ...prevMetrics };
@@ -243,7 +208,7 @@ function Production({ onNavigate }) {
     }
   };
 
-  const toggleModelEditMode = async (modelName) => { 
+  const toggleModelEditMode = async (modelName) => {
     if (editingModelName === modelName) {
       const currentModelMetrics = dailyMetrics[modelName];
       const updatedDailyMetricsForFirestore = {};
@@ -254,7 +219,7 @@ function Production({ onNavigate }) {
         const sparseDataForStatus = [];
         dailyValuesArray.forEach((value, index) => {
           const day = index + 1;
-          if (value !== 0 && value !== null && value !== undefined && String(value).trim() !== '') { 
+          if (value !== 0 && value !== null && value !== undefined && String(value).trim() !== '') {
             sparseDataForStatus.push({ day, value });
             hasAnyDataToSave = true;
           }
@@ -278,22 +243,28 @@ function Production({ onNavigate }) {
               data => data.year === selectedYear && data.month === selectedMonth
             );
 
-            const newMonthlyData = {
-                year: selectedYear,
-                month: selectedMonth,
-                data: updatedDailyMetricsForFirestore
-            };
+            const isAllZeroOrEmptyForMonth = Object.values(updatedDailyMetricsForFirestore).every(
+              (arr) => arr.length === 0
+            );
 
             if (monthlyDataIndex !== -1) {
-                if (Object.values(updatedDailyMetricsForFirestore).every(arr => arr.length === 0)) {
-                    newdata.splice(monthlyDataIndex, 1);
-                } else {
-                    newdata[monthlyDataIndex] = newMonthlyData;
-                }
+              if (isAllZeroOrEmptyForMonth) {
+                newdata.splice(monthlyDataIndex, 1);
+              } else {
+                newdata[monthlyDataIndex] = {
+                  year: selectedYear,
+                  month: selectedMonth,
+                  data: updatedDailyMetricsForFirestore
+                };
+              }
             } else {
-                if (Object.values(updatedDailyMetricsForFirestore).some(arr => arr.length > 0)) {
-                    newdata.push(newMonthlyData);
-                }
+              if (!isAllZeroOrEmptyForMonth) {
+                newdata.push({
+                  year: selectedYear,
+                  month: selectedMonth,
+                  data: updatedDailyMetricsForFirestore
+                });
+              }
             }
 
             return {
@@ -311,7 +282,7 @@ function Production({ onNavigate }) {
             models: updatedModels
           });
           alert('บันทึกข้อมูลสำเร็จ!');
-          setSelectedProduction(prev => ({ ...prev, models: updatedModels })); 
+          setSelectedProduction(prev => ({ ...prev, models: updatedModels }));
         } else {
           alert('ไม่มีการเปลี่ยนแปลงข้อมูล');
         }
@@ -325,7 +296,7 @@ function Production({ onNavigate }) {
         alert('เกิดข้อผิดพลาดในการบันทึกข้อมูล: ' + error.message);
       }
     } else {
-      setOriginalDailyMetrics({ 
+      setOriginalDailyMetrics({
         ...originalDailyMetrics,
         [modelName]: JSON.parse(JSON.stringify(dailyMetrics[modelName]))
       });
@@ -334,7 +305,7 @@ function Production({ onNavigate }) {
     }
   };
 
-  const handleCancelEdit = (modelName) => { 
+  const handleCancelEdit = (modelName) => {
     if (originalDailyMetrics[modelName]) {
       setDailyMetrics(prevMetrics => ({
         ...prevMetrics,
@@ -346,14 +317,16 @@ function Production({ onNavigate }) {
     setOriginalDailyMetrics({});
   };
 
-  const handleCellClick = (modelName, statusType, day) => { 
-    if (
-      day === today.getDate() &&
-      selectedMonth === today.getMonth() &&
-      selectedYear === today.getFullYear() &&
-      editingModelName === modelName
-    ) {
-      setEditingCellKey(`${modelName}-${statusType}-${day}`);
+  const handleCellClick = (modelName, statusType, day) => {
+    if (editingModelName === modelName) {
+      const clickedDate = new Date(selectedYear, selectedMonth, day);
+      const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+
+      if (clickedDate <= todayDate) {
+        setEditingCellKey(`${modelName}-${statusType}-${day}`);
+      } else {
+        alert('ไม่สามารถแก้ไขข้อมูลของวันที่ที่ยังมาไม่ถึงได้');
+      }
     }
   };
 
@@ -391,9 +364,9 @@ function Production({ onNavigate }) {
     );
   }
 
-  const yearsToDisplay = availableYears.length > 0 ? availableYears : [today.getFullYear()];
-  const monthsToDisplay = availableMonths.length > 0 ? availableMonths : [today.getMonth()];
-  
+  const yearsToDisplay = availableYears;
+  const monthsToDisplay = availableMonths;
+
   return (
     <div className="min-h-screen flex flex-col items-center bg-gray-900 text-white p-4">
       <div className="bg-gray-800 p-8 rounded-xl shadow-lg w-full max-w-full overflow-x-auto my-8">
@@ -404,47 +377,43 @@ function Production({ onNavigate }) {
           <p className="text-left mb-4 md:mb-0">
             <span className="font-semibold text-blue-300">ผู้รับผิดชอบ:</span> {selectedProduction.responsiblePerson || 'ไม่ได้ระบุ'}
           </p>
-          {(selectedProduction.models && selectedProduction.models.length > 0) || (availableYears.length === 0) ? ( 
-            <div className="flex flex-col items-end">
-              <p className="font-bold mb-2">
-                วันนี้: <span className="text-yellow-300">
-                  {currentDateFormatted}
-                </span>
-              </p>
-              <div className="flex space-x-2 items-center">
-                <label htmlFor="month-select" className="sr-only">เลือกเดือน</label>
-                <select
-                  id="month-select"
-                  className="bg-gray-700 text-white p-2 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  value={selectedMonth}
-                  onChange={handleMonthChange}
-                >
-                  {monthsToDisplay.map((monthNum) => (
-                    <option key={monthNum} value={monthNum}>
-                      {thaiMonths[monthNum]}
-                    </option>
-                  ))}
-                </select>
-                <label htmlFor="year-select" className="sr-only">เลือกปี</label>
-                <select
-                  id="year-select"
-                  className="bg-gray-700 text-white p-2 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  value={selectedYear}
-                  onChange={handleYearChange}
-                >
-                  {yearsToDisplay.map((year) => (
-                    <option key={year} value={year}>
-                      {year + 543}
-                    </option>
-                  ))}
-                </select>
-              </div>
+          <div className="flex flex-col items-end">
+            <p className="font-bold mb-2">
+              วันนี้: <span className="text-yellow-300">
+                {currentDateFormatted}
+              </span>
+            </p>
+            <div className="flex space-x-2 items-center">
+              <label htmlFor="month-select" className="sr-only">เลือกเดือน</label>
+              <select
+                id="month-select"
+                className="bg-gray-700 text-white p-2 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                value={selectedMonth}
+                onChange={handleMonthChange}
+              >
+                {monthsToDisplay.map((monthNum) => (
+                  <option key={monthNum} value={monthNum}>
+                    {thaiMonths[monthNum]}
+                  </option>
+                ))}
+              </select>
+              <label htmlFor="year-select" className="sr-only">เลือกปี</label>
+              <select
+                id="year-select"
+                className="bg-gray-700 text-white p-2 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                value={selectedYear}
+                onChange={handleYearChange}
+              >
+                {yearsToDisplay.map((year) => (
+                  <option key={year} value={year}>
+                    {year + 543}
+                  </option>
+                ))}
+              </select>
             </div>
-          ) : (
-            <p className="text-gray-400 text-right">ไม่มีข้อมูลให้เลือกสำหรับเดือนและปีอื่น</p>
-          )}
+          </div>
         </div>
-        {selectedProduction.models && selectedProduction.models.length > 0 ? ( 
+        {selectedProduction.models && selectedProduction.models.length > 0 ? (
           selectedProduction.models.map((model, modelIndex) => (
             <div key={modelIndex} className="mb-8 p-4 bg-gray-700 rounded-lg border border-gray-600">
               <div className="flex justify-between items-center mb-4">
@@ -455,18 +424,18 @@ function Production({ onNavigate }) {
                   <button
                     onClick={() => toggleModelEditMode(model.name)}
                     className={`py-2 px-4 rounded-lg transition duration-300 ease-in-out transform hover:scale-105
-                               ${editingModelName === model.name ? 'bg-green-500 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}
-                               text-white font-bold focus:outline-none focus:ring-2
-                               ${editingModelName === model.name ? 'focus:ring-green-500 focus:ring-offset-green-800' : 'focus:ring-red-500 focus:ring-offset-red-800'}
-                               `}
+                                ${editingModelName === model.name ? 'bg-green-500 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}
+                                text-white font-bold focus:outline-none focus:ring-2
+                                ${editingModelName === model.name ? 'focus:ring-green-500 focus:ring-offset-green-800' : 'focus:ring-red-500 focus:ring-offset-red-800'}
+                                `}
                   >
                     {editingModelName === model.name ? 'บันทึก' : 'แก้ไข'}
                   </button>
-                  {editingModelName === model.name && ( 
+                  {editingModelName === model.name && (
                     <button
                       onClick={() => handleCancelEdit(model.name)}
                       className="py-2 px-4 rounded-lg transition duration-300 ease-in-out transform hover:scale-105
-                               bg-gray-500 hover:bg-gray-700 text-white font-bold focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-gray-800"
+                                bg-gray-500 hover:bg-gray-700 text-white font-bold focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-gray-800"
                     >
                       ยกเลิก
                     </button>
@@ -481,19 +450,26 @@ function Production({ onNavigate }) {
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-200 uppercase tracking-wider whitespace-nowrap">
                         สถานะ
                       </th>
-                      {days.map((day) => (
-                        <th
-                          key={day}
-                          className={`px-3 py-3 text-center text-xs font-medium text-gray-200 uppercase tracking-wider whitespace-nowrap
-                                      ${
-                                        day === today.getDate() && selectedMonth === today.getMonth() && selectedYear === today.getFullYear()
-                                          ? 'bg-blue-700 text-white border-b-2 border-blue-400'
-                                          : ''
-                                      }`}
-                        >
-                          วันที่ {day}
-                        </th>
-                      ))}
+                      {days.map((day) => {
+                         const headerDate = new Date(selectedYear, selectedMonth, day);
+                         const isFutureDate = headerDate > today;
+                         const isCurrentDay = day === today.getDate() && selectedMonth === today.getMonth() && selectedYear === today.getFullYear();
+                        return (
+                          <th
+                            key={day}
+                            className={`px-3 py-3 text-center text-xs font-medium text-gray-200 uppercase tracking-wider whitespace-nowrap
+                                  ${
+                                    isCurrentDay
+                                      ? 'bg-blue-700 text-white border-b-2 border-blue-400'
+                                      : ''
+                                  }
+                                  ${isFutureDate ? 'bg-gray-700 text-gray-400 cursor-not-allowed' : ''}
+                                  `}
+                          >
+                            วันที่ {day}
+                          </th>
+                        );
+                      })}
                     </tr>
                   </thead>
                   <tbody className="bg-gray-800 divide-y divide-gray-700">
@@ -503,27 +479,32 @@ function Production({ onNavigate }) {
                           {status}
                         </td>
                         {days.map((day) => {
-                         
-                          const cellKey = `${model.name}-${status}-${day}`; 
+                          const cellKey = `${model.name}-${status}-${day}`;
                           const isEditingCell = editingCellKey === cellKey;
-                          const isInModelEditMode = editingModelName === model.name; 
-                         
-                          const displayValue = dailyMetrics[model.name]?.[status]?.[day - 1]; 
-                          const isCurrentDayAndMonthYear = day === today.getDate() && selectedMonth === today.getMonth() && selectedYear === today.getFullYear();
+                          const isInModelEditMode = editingModelName === model.name;
+
+                          const displayValue = dailyMetrics[model.name]?.[status]?.[day - 1];
+
+                          const cellDate = new Date(selectedYear, selectedMonth, day);
+                          const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+                          const isFutureCell = cellDate > todayDate;
+                          const isCurrentDayCell = cellDate.getTime() === todayDate.getTime();
+
 
                           return (
                             <td
                               key={day}
                               className={`
-                                p-2 h-10 min-w-[80px] relative overflow-hidden 
+                                p-2 h-10 min-w-[80px] relative overflow-hidden
                                 text-sm text-center
-                                ${isCurrentDayAndMonthYear ? 'bg-blue-600 text-white' : 'bg-gray-800'}
-                                ${isCurrentDayAndMonthYear && isInModelEditMode ? 'cursor-pointer' : ''}
-                                text-white
+                                ${isCurrentDayCell ? 'bg-blue-600 text-white' : 'bg-gray-800'}
+                                ${isInModelEditMode && !isFutureCell ? 'cursor-pointer' : ''}
+                                ${isFutureCell && isInModelEditMode ? 'bg-gray-700 text-gray-500 cursor-not-allowed' : ''}
+                                ${isFutureCell && !isInModelEditMode ? 'text-gray-500' : 'text-white'}
                               `}
                               onClick={() => handleCellClick(model.name, status, day)}
                             >
-                              {isCurrentDayAndMonthYear && isInModelEditMode ? (
+                              {isInModelEditMode && !isFutureCell ? (
                                 isEditingCell ? (
                                   <div className="absolute inset-0 flex items-center justify-center">
                                     <input
@@ -566,7 +547,7 @@ function Production({ onNavigate }) {
           <button
             onClick={() => onNavigate('/dashboard')}
             className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-6 rounded-lg transition duration-300 ease-in-out transform hover:scale-105
-                               focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-800"
+                                focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-800"
           >
             กลับสู่แผงควบคุม
           </button>

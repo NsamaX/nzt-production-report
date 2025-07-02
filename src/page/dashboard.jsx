@@ -428,11 +428,10 @@ function Dashboard({ onNavigate, onLogout, user, userRole }) {
                             <select
                                 id="report-month-select"
                                 className={`p-2 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 flex-1
-                                transition duration-300 ease-in-out transform hover:scale-105
-                                ${!hasProductionData ? 'bg-gray-600 text-gray-400' : 'bg-gray-700 text-white'}`}
+                                ${!hasProductionData ? 'bg-gray-600 text-gray-400' : 'bg-gray-700 text-white transition duration-300 ease-in-out transform hover:scale-105'}`}
                                 value={selectedMonth}
                                 onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
-                                disabled={!hasProductionData && selectedMonth !== -1 || loadingReport}
+                                disabled={!hasProductionData || loadingReport}
                             >
                                 <option key="report-month--1" value={-1}>ทุกเดือน</option>
                                 {availableDates.months
@@ -450,8 +449,7 @@ function Dashboard({ onNavigate, onLogout, user, userRole }) {
                             <select
                                 id="report-year-select"
                                 className={`p-2 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 flex-1
-                                transition duration-300 ease-in-out transform hover:scale-105
-                                ${!hasProductionData ? 'bg-gray-600 text-gray-400' : 'bg-gray-700 text-white'}`}
+                                ${!hasProductionData ? 'bg-gray-600 text-gray-400' : 'bg-gray-700 text-white transition duration-300 ease-in-out transform hover:scale-105'}`}
                                 value={selectedYear}
                                 onChange={(e) => setSelectedYear(parseInt(e.target.value))}
                                 disabled={availableDates.years.length <= 1 && availableDates.years[0] === currentYear && !hasProductionData || loadingReport}
@@ -465,10 +463,10 @@ function Dashboard({ onNavigate, onLogout, user, userRole }) {
                             </select>
                             <button
                                 className={`font-bold py-4 px-6 rounded-lg transition duration-300 ease-in-out transform flex-1
-                                ${hasProductionData || selectedMonth === -1 ? 'bg-blue-600 hover:bg-blue-700 hover:scale-105 focus:ring-blue-500' : 'bg-gray-500'}
+                                ${hasProductionData ? 'bg-blue-600 hover:bg-blue-700 hover:scale-105 focus:ring-blue-500' : 'bg-gray-500'}
                                 text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800`}
                                 onClick={handleExportReport}
-                                disabled={!hasProductionData && selectedMonth !== -1 || loadingReport}
+                                disabled={!hasProductionData || loadingReport}
                             >
                                 {loadingReport ? 'กำลังสร้าง...' : 'ส่งออกรายงาน'}
                             </button>
@@ -477,12 +475,12 @@ function Dashboard({ onNavigate, onLogout, user, userRole }) {
                     {canAccessExcel && (
                         <button
                             className={`font-bold py-4 px-6 rounded-lg transition duration-300 ease-in-out transform flex-1
-                            ${!hasProductionData || loadingReport
-                                ? 'bg-gray-500 text-gray-300 cursor-not-allowed'
+                            ${true
+                                ? 'bg-gray-500 text-gray-300'
                                 : 'bg-green-600 hover:bg-green-700 hover:scale-105 focus:ring-green-500 focus:ring-offset-2 focus:ring-offset-gray-800'
                             }
                             text-white focus:outline-none focus:ring-2`}
-                            disabled={!hasProductionData || loadingReport}
+                            disabled={true}
                         >
                             ส่งออก Excel
                         </button>

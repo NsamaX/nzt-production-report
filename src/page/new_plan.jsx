@@ -23,7 +23,6 @@ const initialModel = {
     name: '',
     maxCapacity: '',
     displayMaxCapacity: '',
-    status: 'รอดำเนินการ',
     data: []
 };
 
