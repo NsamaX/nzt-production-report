@@ -2,38 +2,34 @@ import React, { useState } from 'react';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../firebaseConfig';
 
-const getErrorMessage = (code) => {
+const getAuthErrorMsg = (code) => {
   switch (code) {
     case 'auth/user-not-found':
-    case 'auth/wrong-password':
-      return 'Incorrect email or password.';
-    case 'auth/invalid-email':
-      return 'Invalid email format.';
-    case 'auth/too-many-requests':
-      return 'Too many login attempts. Please try again later.';
-    default:
-      return 'An error occurred during login.';
+    case 'auth/wrong-password':    return 'Incorrect email or password.';
+    case 'auth/invalid-email':     return 'Invalid email format.';
+    case 'auth/too-many-requests': return 'Too many login attempts. Please try again later.';
+    default:                       return 'An error occurred during login.';
   }
 };
 
-const SignIn = ({ onSigin }) => {
+const SignIn = ({ onSignIn }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState(null);
 
-  const signin = async (e) => {
+  const handleSignIn = async (e) => {
     e.preventDefault();
     setError(null);
 
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      onSigin();
+      onSignIn();
     } catch (e) {
-      setError(getErrorMessage(e.code));
+      setError(getAuthErrorMsg(e.code));
     }
   };
 
-  const inputClass = `
+  const inputStyle = `
     p-4 rounded-lg border border-emerald-700 bg-gray-700 text-white
     focus:outline-none focus:ring-2 focus:ring-blue-500
     placeholder-gray-400 font-inter
@@ -41,7 +37,7 @@ const SignIn = ({ onSigin }) => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-900 text-white p-4">
-      <form onSubmit={signin} className="flex flex-col space-y-6 bg-gray-800 p-8 rounded-xl shadow-lg w-full max-w-sm">
+      <form onSubmit={handleSignIn} className="flex flex-col space-y-6 bg-gray-800 p-8 rounded-xl shadow-lg w-full max-w-sm">
         <label className="text-3xl font-extrabold text-center text-emerald-300 mb-4">
           NZT Production
         </label>
@@ -50,7 +46,7 @@ const SignIn = ({ onSigin }) => {
           placeholder="Enter email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className={inputClass}
+          className={inputStyle}
           aria-label="Email"
           required
         />
@@ -59,7 +55,7 @@ const SignIn = ({ onSigin }) => {
           placeholder="Enter password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className={inputClass}
+          className={inputStyle}
           aria-label="Password"
           required
         />

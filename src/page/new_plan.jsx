@@ -2,47 +2,48 @@ import React, { useState } from 'react';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 
-const formatNumberWithCommas = (num) => {
+const formatNum = (num) => {
     if (num === null || num === undefined || String(num).trim() === '') {
         return '';
     }
     const cleanedNum = String(num).replace(/,/g, '');
-    const numberValue = parseFloat(cleanedNum);
-    return isNaN(numberValue) ? cleanedNum : numberValue.toLocaleString('en-US');
+    const numVal = parseFloat(cleanedNum);
+    return isNaN(numVal) ? cleanedNum : numVal.toLocaleString('en-US');
 };
 
-const parseNumberFromFormattedString = (str) => {
+const parseNum = (str) => {
     if (str === null || str === undefined || String(str).trim() === '') {
-        return 0;
+        return '';
     }
     const cleanedStr = String(str).replace(/,/g, '');
-    return parseInt(cleanedStr, 10) || 0;
+    const numVal = parseInt(cleanedStr, 10);
+    return isNaN(numVal) || numVal < 0 ? null : numVal;
 };
 
-const initialModel = {
+const initialMod = {
     name: '',
-    maxCapacity: '',
+    maxCapacity: null,
     displayMaxCapacity: '',
     data: []
 };
 
-function NewPlan({ onNavigate, user, userRole }) {
-    const [plant, setPlant] = useState('');
-    const [description, setDescription] = useState('');
-    const [models, setModels] = useState([{ ...initialModel }]);
+function NewPlan({ onNavigate, user }) {
+    const [lineName, setLineName] = useState('');
+    const [desc, setDesc] = useState('');
+    const [modList, setModList] = useState([{ ...initialMod }]);
 
-    const [errors, setErrors] = useState({
-        plant: false,
-        models: false,
+    const [formErrors, setFormErrors] = useState({
+        lineName: false,
+        modList: false,
         modelCapacities: {}
     });
 
-    const updateError = (field, value) => {
-        setErrors(prev => ({ ...prev, [field]: value }));
+    const setFormError = (field, value) => {
+        setFormErrors(prev => ({ ...prev, [field]: value }));
     };
 
-    const updateModelCapacityError = (index, value) => {
-        setErrors(prev => ({
+    const setModCapError = (index, value) => {
+        setFormErrors(prev => ({
             ...prev,
             modelCapacities: {
                 ...prev.modelCapacities,
@@ -51,92 +52,89 @@ function NewPlan({ onNavigate, user, userRole }) {
         }));
     };
 
-    const handleModelChange = (index, field, value) => {
-        const newModels = [...models];
+    const handleModChange = (index, field, value) => {
+        const newModList = [...modList];
         if (field === 'maxCapacity') {
-            const cleanedValue = value.replace(/\D/g, '');
-            newModels[index].maxCapacity = cleanedValue;
-            newModels[index].displayMaxCapacity = formatNumberWithCommas(cleanedValue);
+            const cleanedVal = value.replace(/\D/g, '');
+            newModList[index].maxCapacity = cleanedVal;
+            newModList[index].displayMaxCapacity = formatNum(cleanedVal);
 
-            const rawValue = parseNumberFromFormattedString(cleanedValue);
-            updateModelCapacityError(index, cleanedValue.trim() === '' || isNaN(rawValue) || rawValue < 0);
+            const parsedVal = parseNum(cleanedVal);
+            setModCapError(index, cleanedVal.trim() === '' || parsedVal === null);
         } else {
-            newModels[index][field] = value;
+            newModList[index][field] = value;
             if (field === 'name' && value.trim() !== '') {
-                updateError('models', newModels.some(m => m.name.trim() === ''));
+                setFormError('modList', newModList.some(m => m.name.trim() === ''));
             }
         }
-        setModels(newModels);
+        setModList(newModList);
     };
 
-    const addModel = () => {
-        setModels(prevModels => [...prevModels, { ...initialModel }]);
-        updateError('models', false);
+    const addMod = () => {
+        setModList(prevModList => [...prevModList, { ...initialMod }]);
+        setFormError('modList', false);
     };
 
-    const removeModel = (index) => {
-        const newModels = models.filter((_, i) => i !== index);
-        setModels(newModels);
+    const removeMod = (index) => {
+        const newModList = modList.filter((_, i) => i !== index);
+        setModList(newModList);
 
-        setErrors(prev => {
-            const newModelCapacities = {};
+        setFormErrors(prev => {
+            const newModCapacities = {};
             Object.keys(prev.modelCapacities).forEach(key => {
                 const originalIndex = parseInt(key);
                 if (originalIndex < index) {
-                    newModelCapacities[originalIndex] = prev.modelCapacities[key];
+                    newModCapacities[originalIndex] = prev.modelCapacities[key];
                 } else if (originalIndex > index) {
-                    newModelCapacities[originalIndex - 1] = prev.modelCapacities[key];
+                    newModCapacities[originalIndex - 1] = prev.modelCapacities[key];
                 }
             });
             return {
                 ...prev,
-                models: newModels.length === 0,
-                modelCapacities: newModelCapacities
+                modList: newModList.length === 0,
+                modelCapacities: newModCapacities
             };
         });
     };
 
-    const validateForm = () => {
+    const validate = () => {
         let isValid = true;
-        let newModelMaxCapacityErrors = {};
-        let newModelNameErrors = false;
+        let newModCapErrors = {};
+        let newModNameErrors = false;
 
-        if (plant.trim() === '') {
-            updateError('plant', true);
+        if (lineName.trim() === '') {
+            setFormError('lineName', true);
             isValid = false;
         } else {
-            updateError('plant', false);
+            setFormError('lineName', false);
         }
 
-        if (models.length === 0) {
-            updateError('models', true);
+        if (modList.length === 0) {
+            setFormError('modList', true);
             isValid = false;
         } else {
-            updateError('models', false);
+            setFormError('modList', false);
         }
 
-        models.forEach((model, index) => {
+        modList.forEach((model, index) => {
             if (model.name.trim() === '') {
-                newModelNameErrors = true;
+                newModNameErrors = true;
                 isValid = false;
             }
 
-            const parsedCapacity = parseNumberFromFormattedString(model.maxCapacity);
-            if (model.maxCapacity.trim() === '' || isNaN(parsedCapacity) || parsedCapacity < 0) {
-                newModelMaxCapacityErrors[index] = true;
+            const parsedCapacity = parseNum(model.maxCapacity);
+            if (parsedCapacity === null) {
+                newModCapErrors[index] = true;
                 isValid = false;
             }
         });
 
-        updateError('models', newModelNameErrors || models.length === 0);
+        setFormError('modList', newModNameErrors || modList.length === 0);
 
-        setErrors(prev => ({ ...prev, modelCapacities: newModelMaxCapacityErrors }));
+        setFormErrors(prev => ({ ...prev, modelCapacities: newModCapErrors }));
 
-        if (Object.keys(newModelMaxCapacityErrors).length > 0) {
+        if (Object.keys(newModCapErrors).length > 0) {
             alert('Please specify the "Max Capacity" for each model correctly (must be a non-negative number).');
-        }
-        if (newModelNameErrors) {
-            alert('Please specify all model names.');
         }
 
         return isValid;
@@ -145,17 +143,16 @@ function NewPlan({ onNavigate, user, userRole }) {
     const handleSubmit = async (event) => {
         event.preventDefault();
 
-        if (!validateForm()) {
+        if (!validate()) {
             return;
         }
 
-        const newProductionData = {
-            plant,
-            description,
-            // responsiblePerson, // Removed responsiblePerson from payload
-            models: models.map(model => ({
+        const prodData = {
+            plant: lineName,
+            description: desc,
+            models: modList.map(model => ({
                 ...model,
-                maxCapacity: parseNumberFromFormattedString(model.maxCapacity)
+                maxCapacity: parseNum(model.maxCapacity)
             })),
             createdAt: serverTimestamp(),
             createdBy: user?.uid || 'anonymous',
@@ -163,8 +160,7 @@ function NewPlan({ onNavigate, user, userRole }) {
         };
 
         try {
-            const docRef = await addDoc(collection(db, 'productions'), newProductionData);
-            console.log('Document written with ID:', docRef.id);
+            const docRef = await addDoc(collection(db, 'productions'), prodData);
             alert('Production data saved successfully!');
             onNavigate('/dashboard');
         } catch (e) {
@@ -174,13 +170,12 @@ function NewPlan({ onNavigate, user, userRole }) {
     };
 
     const canSubmit =
-        plant.trim() !== '' &&
-        // responsiblePerson.trim() !== '' && // Removed responsiblePerson from canSubmit logic
-        models.length > 0 &&
-        models.every(model =>
+        lineName.trim() !== '' &&
+        modList.length > 0 &&
+        modList.every(model =>
             model.name.trim() !== '' &&
-            parseNumberFromFormattedString(model.maxCapacity) >= 0 &&
-            model.maxCapacity.trim() !== ''
+            parseNum(model.maxCapacity) !== '' &&
+            parseNum(model.maxCapacity) !== null
         );
 
     return (
@@ -193,45 +188,45 @@ function NewPlan({ onNavigate, user, userRole }) {
                     Add Production Data
                 </h1>
                 <div>
-                    <label htmlFor="plant" className="block text-gray-300 text-sm font-bold mb-2">
+                    <label htmlFor="lineName" className="block text-gray-300 text-sm font-bold mb-2">
                         Production Line Name:
                     </label>
                     <input
-                        id="plant"
+                        id="lineName"
                         type="text"
                         placeholder="e.g., Production Line A"
-                        value={plant}
+                        value={lineName}
                         onChange={(e) => {
-                            setPlant(e.target.value);
-                            updateError('plant', e.target.value.trim() === '');
+                            setLineName(e.target.value);
+                            setFormError('lineName', e.target.value.trim() === '');
                         }}
-                        onBlur={() => updateError('plant', plant.trim() === '')}
+                        onBlur={() => setFormError('lineName', lineName.trim() === '')}
                         className={`p-3 rounded-lg border bg-gray-700 text-white w-full
                             focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-gray-400
-                            ${errors.plant ? 'border-red-500' : 'border-emerald-700'}`}
+                            ${formErrors.lineName ? 'border-red-500' : 'border-emerald-700'}`}
                         required
-                        aria-invalid={errors.plant ? "true" : "false"}
-                        aria-describedby={errors.plant ? "plant-error" : undefined}
+                        aria-invalid={formErrors.lineName ? "true" : "false"}
+                        aria-describedby={formErrors.lineName ? "plant-error" : undefined}
                     />
-                    {errors.plant && <p id="plant-error" className="text-red-400 text-sm mt-1">Please specify the production line name.</p>}
+                    {formErrors.lineName && <p id="plant-error" className="text-red-400 text-sm mt-1">Please specify the production line name.</p>}
                 </div>
                 <div>
-                    <label htmlFor="description" className="block text-gray-300 text-sm font-bold mb-2">
+                    <label htmlFor="desc" className="block text-gray-300 text-sm font-bold mb-2">
                         Description:
                     </label>
                     <textarea
-                        id="description"
+                        id="desc"
                         placeholder="Additional details about this production"
-                        value={description}
-                        onChange={(e) => setDescription(e.target.value)}
+                        value={desc}
+                        onChange={(e) => setDesc(e.target.value)}
                         rows="3"
                         className="p-3 rounded-lg border border-emerald-700 bg-gray-700 text-white w-full resize-y
                             focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-gray-400"
                     ></textarea>
                 </div>
-                <div className={`border rounded-lg p-4 space-y-4 ${errors.models || Object.values(errors.modelCapacities).some(e => e) ? 'border-red-500' : 'border-gray-600'}`}>
+                <div className={`border rounded-lg p-4 space-y-4 ${formErrors.modList || Object.values(formErrors.modelCapacities).some(e => e) ? 'border-red-500' : 'border-gray-600'}`}>
                     <h2 className="text-xl font-bold text-blue-400">Model List</h2>
-                    {models.map((model, index) => (
+                    {modList.map((model, index) => (
                         <div key={index} className="flex flex-col sm:flex-row sm:space-x-3 space-y-3 sm:space-y-0 items-end">
                             <div className="flex-grow-[2] w-full">
                                 <label htmlFor={`modelName-${index}`} className="block text-gray-300 text-sm font-bold mb-1">
@@ -242,13 +237,12 @@ function NewPlan({ onNavigate, user, userRole }) {
                                     type="text"
                                     placeholder="e.g., S/W"
                                     value={model.name}
-                                    onChange={(e) => handleModelChange(index, 'name', e.target.value)}
+                                    onChange={(e) => handleModChange(index, 'name', e.target.value)}
                                     className={`p-2 rounded-lg border bg-gray-700 text-white w-full
                                         focus:outline-none focus:ring-2 focus:ring-emerald-500 placeholder-gray-400
-                                        ${errors.models && model.name.trim() === '' ? 'border-red-500' : 'border-gray-500'}`}
+                                        ${formErrors.modList && model.name.trim() === '' ? 'border-red-500' : 'border-gray-500'}`}
                                     required
                                 />
-                                {errors.models && model.name.trim() === '' && <p className="text-red-400 text-sm mt-1">Please specify the model name.</p>}
                             </div>
                             <div className="flex-grow w-full">
                                 <label htmlFor={`maxCapacity-${index}`} className="block text-gray-300 text-sm font-bold mb-1">
@@ -261,18 +255,18 @@ function NewPlan({ onNavigate, user, userRole }) {
                                     pattern="[0-9,]*"
                                     placeholder="e.g., 10,000"
                                     value={model.displayMaxCapacity}
-                                    onChange={(e) => handleModelChange(index, 'maxCapacity', e.target.value)}
+                                    onChange={(e) => handleModChange(index, 'maxCapacity', e.target.value)}
                                     onBlur={() => {
-                                        const rawValue = parseNumberFromFormattedString(model.displayMaxCapacity);
-                                        const newModels = [...models];
-                                        newModels[index].maxCapacity = String(rawValue);
-                                        newModels[index].displayMaxCapacity = formatNumberWithCommas(rawValue);
-                                        setModels(newModels);
-                                        updateModelCapacityError(index, String(rawValue).trim() === '' || isNaN(rawValue) || rawValue < 0);
+                                        const parsedVal = parseNum(model.displayMaxCapacity);
+                                        const newModList = [...modList];
+                                        newModList[index].maxCapacity = parsedVal !== null ? String(parsedVal) : '';
+                                        newModList[index].displayMaxCapacity = formatNum(parsedVal !== null ? parsedVal : '');
+                                        setModList(newModList);
+                                        setModCapError(index, parsedVal === null);
                                     }}
                                     className={`p-2 rounded-lg border bg-gray-700 text-white w-full
                                         focus:outline-none focus:ring-2 focus:ring-emerald-500 placeholder-gray-400
-                                        ${errors.modelCapacities[index] ? 'border-red-500' : 'border-gray-500'}
+                                        ${formErrors.modelCapacities[index] ? 'border-red-500' : 'border-gray-500'}
                                         [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none
                                         [-moz-appearance:textfield]`}
                                     required
@@ -280,7 +274,7 @@ function NewPlan({ onNavigate, user, userRole }) {
                             </div>
                             <button
                                 type="button"
-                                onClick={() => removeModel(index)}
+                                onClick={() => removeMod(index)}
                                 className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg
                                          transition duration-300 ease-in-out transform hover:scale-105
                                          focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-gray-800 w-full sm:w-auto"
@@ -291,17 +285,14 @@ function NewPlan({ onNavigate, user, userRole }) {
                     ))}
                     <button
                         type="button"
-                        onClick={addModel}
+                        onClick={addMod}
                         className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg w-full
                             transition duration-300 ease-in-out transform hover:scale-105
                             focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-800"
                     >
                         Add Model Item
                     </button>
-                    {errors.models && models.length === 0 && <p className="text-red-400 text-sm mt-1">Please add at least 1 model item.</p>}
-                    {models.length > 0 && models.some(item => item.name.trim() === '') && (
-                        <p className="text-red-400 text-sm mt-1">Please specify all model names.</p>
-                    )}
+                    {formErrors.modList && modList.length === 0 && <p className="text-red-400 text-sm mt-1">Please add at least 1 model item.</p>}
                 </div>
                 <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4 w-full justify-stretch mt-6">
                     <button

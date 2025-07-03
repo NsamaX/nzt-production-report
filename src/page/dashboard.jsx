@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { collection, query, orderBy, onSnapshot, addDoc, updateDoc, doc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
+
 import { getReport } from './get_report';
 import { exportExcel } from './export_excel';
 
-const thaiMonths = [
+const MONTHS = [
     'January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December'
 ];
@@ -25,67 +26,54 @@ function Dashboard({ onNavigate, onSignout, user, userRole }) {
     const [selectedMonth, setSelectedMonth] = useState(-1);
     const [selectedYear, setSelectedYear] = useState(currentYear);
     const [availableDates, setAvailableDates] = useState({ months: [], years: [] });
-    const [loadingReport, setLoadingReport] = useState(false);
-    const [loadingExcel, setLoadingExcel] = useState(false);
+    const [reportLoading, setReportLoading] = useState(false);
+    const [excelLoading, setExcelLoading] = useState(false);
 
     const isAdmin = userRole === 'admin';
     const isManager = userRole === 'manager';
     const isStaff = userRole === 'staff';
 
-    const canAccessNewPlan = isAdmin || isManager;
+    const canAccessPlan = isAdmin || isManager;
     const canAccessExcel = isAdmin || isManager || isStaff;
     const canAccessReport = isAdmin || isManager || isStaff;
     const canManageNews = isAdmin || isManager;
 
     useEffect(() => {
-        const productionsQuery = query(collection(db, 'productions'), orderBy('createdAt', 'desc'));
-        const unsubscribeProductions = onSnapshot(productionsQuery, (snapshot) => {
-            const productionsData = [];
-            const yearsSet = new Set();
-            const monthsSet = new Set();
+        const prodQuery = query(collection(db, 'productions'), orderBy('createdAt', 'desc'));
+        const unsubscribeProd = onSnapshot(prodQuery, (snapshot) => {
+            const prodData = [];
+            const years = new Set();
+            const months = new Set();
 
             snapshot.forEach((doc) => {
                 const item = { id: doc.id, ...doc.data() };
-                productionsData.push(item);
+                prodData.push(item);
 
                 item.models?.forEach(model => {
                     model.data?.forEach(monthlyData => {
-                        yearsSet.add(monthlyData.year);
-                        monthsSet.add(monthlyData.month);
+                        years.add(monthlyData.year);
+                        months.add(monthlyData.month);
                     });
                 });
             });
 
-            setProductions(productionsData);
+            setProductions(prodData);
             setLoading(prev => ({ ...prev, productions: false }));
 
-            const sortedYears = Array.from(yearsSet).sort((a, b) => a - b);
-            const sortedMonths = Array.from(monthsSet).sort((a, b) => a - b);
+            const sortedYears = Array.from(years).sort((a, b) => a - b);
 
             let initialYear = currentYear;
-            if (sortedYears.length === 0) {
-                initialYear = currentYear;
-            } else {
-                if (!sortedYears.includes(currentYear)) {
-                    initialYear = sortedYears[sortedYears.length - 1];
-                }
+            if (!sortedYears.includes(currentYear) && sortedYears.length > 0) {
+                initialYear = sortedYears[sortedYears.length - 1];
             }
 
-            let initialMonth = -1;
-            if (sortedMonths.includes(currentMonth)) {
-                initialMonth = currentMonth;
-            } else if (sortedMonths.length > 0) {
-                initialMonth = sortedMonths[sortedMonths.length - 1];
-            }
-            
             setSelectedYear(initialYear);
-            setSelectedMonth(initialMonth);
 
-            const monthsOptions = [-1, ...sortedMonths];
+            const monthOptions = getAvailableMonths(prodData, initialYear);
 
             setAvailableDates({
                 years: sortedYears.length > 0 ? sortedYears : [currentYear],
-                months: monthsOptions
+                months: [-1, ...monthOptions]
             });
 
         }, (error) => {
@@ -93,9 +81,30 @@ function Dashboard({ onNavigate, onSignout, user, userRole }) {
             setLoading(prev => ({ ...prev, productions: false }));
         });
 
-        return () => unsubscribeProductions();
+        return () => unsubscribeProd();
     }, [currentMonth, currentYear]);
 
+    useEffect(() => {
+        const monthOptions = getAvailableMonths(productions, selectedYear);
+        setAvailableDates(prev => ({
+            ...prev,
+            months: [-1, ...monthOptions]
+        }));
+    }, [selectedYear, productions]);
+
+    const getAvailableMonths = (prodData, year) => {
+        const months = new Set();
+        prodData.forEach(item => {
+            item.models?.forEach(model => {
+                model.data?.forEach(monthlyData => {
+                    if (monthlyData.year === year) {
+                        months.add(monthlyData.month);
+                    }
+                });
+            });
+        });
+        return Array.from(months).sort((a, b) => a - b);
+    };
 
     useEffect(() => {
         const newsQuery = query(collection(db, 'news'), orderBy('createdAt', 'desc'));
@@ -112,7 +121,7 @@ function Dashboard({ onNavigate, onSignout, user, userRole }) {
         return () => unsubscribeNews();
     }, []);
 
-    const handleEditNewsClick = (item = null) => {
+    const handleNewsEdit = (item = null) => {
         if (!canManageNews) {
             console.warn('You do not have permission to manage announcements.');
             return;
@@ -125,30 +134,30 @@ function Dashboard({ onNavigate, onSignout, user, userRole }) {
         });
     };
 
-    const handleCancelEditNews = () => {
+    const handleCancelNewsEdit = () => {
         setIsEditingNews(false);
         setCurrentNews({ title: '', message: '', id: null });
     };
 
-    const handleSaveNews = async (event) => {
+    const handleNewsSave = async (event) => {
         event.preventDefault();
         if (currentNews.title.trim() === '' || currentNews.message.trim() === '') {
             console.warn('Please enter both title and message for the announcement.');
             return;
         }
 
-        const newsPayload = {
+        const payload = {
             title: currentNews.title,
             message: currentNews.message,
         };
 
         try {
             if (currentNews.id) {
-                await updateDoc(doc(db, 'news', currentNews.id), newsPayload);
+                await updateDoc(doc(db, 'news', currentNews.id), payload);
                 console.log('Announcement updated successfully!');
             } else {
                 await addDoc(collection(db, 'news'), {
-                    ...newsPayload,
+                    ...payload,
                     createdAt: serverTimestamp(),
                     createdBy: user?.uid || 'anonymous',
                     createdByEmail: user?.email || 'anonymous',
@@ -156,14 +165,14 @@ function Dashboard({ onNavigate, onSignout, user, userRole }) {
                 });
                 console.log('New announcement saved successfully!');
             }
-            handleCancelEditNews();
+            handleCancelNewsEdit();
         } catch (e) {
             console.error("Error saving news:", e);
             console.error('An error occurred while saving the announcement: ' + e.message);
         }
     };
 
-    const handleDeleteNews = async (newsId) => {
+    const handleNewsDelete = async (newsId) => {
         if (!window.confirm("Are you sure you want to delete this announcement?")) return;
         try {
             await deleteDoc(doc(db, 'news', newsId));
@@ -174,7 +183,7 @@ function Dashboard({ onNavigate, onSignout, user, userRole }) {
         }
     };
 
-    const handleDeleteProduction = async (productionId) => {
+    const handleProdDelete = async (prodId) => {
         if (!isAdmin) {
             console.warn('You do not have permission to delete this production item.');
             alert('You do not have permission to delete this production item.');
@@ -182,7 +191,7 @@ function Dashboard({ onNavigate, onSignout, user, userRole }) {
         }
         if (!window.confirm("Are you sure you want to delete this production item? All related data will be deleted as well!")) return;
         try {
-            await deleteDoc(doc(db, 'productions', productionId));
+            await deleteDoc(doc(db, 'productions', prodId));
             console.log('Production item deleted successfully!');
         } catch (e) {
             console.error("Error deleting production:", e);
@@ -190,20 +199,20 @@ function Dashboard({ onNavigate, onSignout, user, userRole }) {
         }
     };
 
-    const handleExportReport = async () => {
+    const handleReportExport = async () => {
         if (productions.length === 0) {
             console.warn("No production data to generate a report.");
             alert("No production data to generate a report. Please add production data first.");
             return;
         }
 
-        setLoadingReport(true);
+        setReportLoading(true);
         try {
-            const productionsForReport = productions.map(productionItem => {
-                const newProductionItem = JSON.parse(JSON.stringify(productionItem));
+            const prodsForReport = productions.map(prodItem => {
+                const newProdItem = JSON.parse(JSON.stringify(prodItem));
 
-                if (newProductionItem.models && Array.isArray(newProductionItem.models)) {
-                    newProductionItem.models = newProductionItem.models.map(model => {
+                if (newProdItem.models && Array.isArray(newProdItem.models)) {
+                    newProdItem.models = newProdItem.models.map(model => {
                         const safeModelData = Array.isArray(model?.data) ? model.data : [];
 
                         let filteredMonthlyData = safeModelData.filter(d => d.year === selectedYear);
@@ -214,22 +223,22 @@ function Dashboard({ onNavigate, onSignout, user, userRole }) {
                         return { ...model, data: filteredMonthlyData };
                     });
                 } else {
-                    newProductionItem.models = [];
+                    newProdItem.models = [];
                 }
-                return newProductionItem;
+                return newProdItem;
             }).filter(pItem => pItem.models && pItem.models.length > 0);
 
-            await getReport(productionsForReport, selectedMonth, selectedYear);
+            await getReport(prodsForReport, selectedMonth, selectedYear);
             console.log("Report generation complete and download initiated.");
         } catch (error) {
             console.error("Error generating report:", error);
             alert("An error occurred while generating the report: " + error.message);
         } finally {
-            setLoadingReport(false);
+            setReportLoading(false);
         }
     };
 
-    const handleExportExcel = async () => {
+    const handleExcelExport = async () => {
         if (!canAccessExcel) {
             console.warn('You do not have permission to export Excel.');
             alert('You do not have permission to export Excel.');
@@ -241,7 +250,7 @@ function Dashboard({ onNavigate, onSignout, user, userRole }) {
             return;
         }
 
-        setLoadingExcel(true);
+        setExcelLoading(true);
         try {
             await exportExcel(productions, selectedMonth, selectedYear);
             console.log("Excel export complete and download initiated.");
@@ -249,11 +258,11 @@ function Dashboard({ onNavigate, onSignout, user, userRole }) {
             console.error("Error exporting Excel:", error);
             alert("An error occurred while exporting Excel: " + error.message);
         } finally {
-            setLoadingExcel(false);
+            setExcelLoading(false);
         }
     };
 
-    const getModelStatusColorClass = (modelData) => {
+    const getModelColor = (modelData) => {
         const monthlyData = modelData?.find(data => data.year === currentYear && data.month === currentMonth);
         if (monthlyData && monthlyData.data) {
             const hasDataForToday = Object.values(monthlyData.data).some(
@@ -266,7 +275,7 @@ function Dashboard({ onNavigate, onSignout, user, userRole }) {
         return 'text-gray-400';
     };
 
-    const hasProductionData = productions.length > 0;
+    const hasProdData = productions.length > 0;
 
     return (
         <div className="min-h-screen flex flex-col items-center justify-center bg-gray-900 text-white p-4 font-inter">
@@ -278,8 +287,8 @@ function Dashboard({ onNavigate, onSignout, user, userRole }) {
                     <button
                         onClick={onSignout}
                         className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg
-                                   transition duration-300 ease-in-out transform hover:scale-105
-                                   focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-gray-800"
+                                       transition duration-300 ease-in-out transform hover:scale-105
+                                       focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-gray-800"
                     >
                         Signout
                     </button>
@@ -302,7 +311,7 @@ function Dashboard({ onNavigate, onSignout, user, userRole }) {
                                             <button
                                                 onClick={(e) => {
                                                     e.stopPropagation();
-                                                    handleDeleteProduction(item.id);
+                                                    handleProdDelete(item.id);
                                                 }}
                                                 className="absolute top-3 right-3 bg-red-600 hover:bg-red-700 text-white text-sm font-bold py-1.5 px-3 rounded-md
                                                 opacity-0 group-hover:opacity-100 transition-opacity duration-200 transform hover:scale-105"
@@ -317,7 +326,7 @@ function Dashboard({ onNavigate, onSignout, user, userRole }) {
                                                 <ul className="list-disc list-inside text-gray-400 space-y-1 ml-4">
                                                     {item.models.map((model, index) => (
                                                         <li key={index}>
-                                                            <span className={`font-medium ${getModelStatusColorClass(model.data)}`}>
+                                                            <span className={`font-medium ${getModelColor(model.data)}`}>
                                                                 {model.name}
                                                             </span>
                                                         </li>
@@ -339,17 +348,17 @@ function Dashboard({ onNavigate, onSignout, user, userRole }) {
                             <select
                                 id="report-month-select"
                                 className={`p-2 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 flex-1
-                                ${!hasProductionData ? 'bg-gray-600 text-gray-400' : 'bg-gray-700 text-white transition duration-300 ease-in-out transform hover:scale-105'}`}
+                                ${!hasProdData ? 'bg-gray-600 text-gray-400' : 'bg-gray-700 text-white transition duration-300 ease-in-out transform hover:scale-105'}`}
                                 value={selectedMonth}
                                 onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
-                                disabled={!hasProductionData || loadingReport || loadingExcel}
+                                disabled={!hasProdData || reportLoading || excelLoading}
                             >
-                                <option key="report-month--1" value={-1}>All Months</option>
+                                <option key="report-month--1" value={-1}>ทุกเดือน</option>
                                 {availableDates.months
                                     .filter(monthNum => monthNum !== -1)
                                     .map((monthNum) => (
                                         <option key={`report-month-${monthNum}`} value={monthNum}>
-                                            {thaiMonths[monthNum]}
+                                            {MONTHS[monthNum]}
                                         </option>
                                     ))
                                 }
@@ -360,50 +369,51 @@ function Dashboard({ onNavigate, onSignout, user, userRole }) {
                             <select
                                 id="report-year-select"
                                 className={`p-2 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 flex-1
-                                ${!hasProductionData ? 'bg-gray-600 text-gray-400' : 'bg-gray-700 text-white transition duration-300 ease-in-out transform hover:scale-105'}`}
+                                ${!hasProdData ? 'bg-gray-600 text-gray-400' : 'bg-gray-700 text-white transition duration-300 ease-in-out transform hover:scale-105'}`}
                                 value={selectedYear}
                                 onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-                                disabled={availableDates.years.length <= 1 && availableDates.years[0] === currentYear && !hasProductionData || loadingReport || loadingExcel}
+                                disabled={availableDates.years.length <= 1 && availableDates.years[0] === currentYear && !hasProdData || reportLoading || excelLoading}
                             >
                                 {availableDates.years.map((year) => (
                                     <option key={`report-year-${year}`} value={year}>
                                         {year}
                                     </option>
                                 ))}
-                                {!hasProductionData && <option value="" disabled>No year data</option>}
+                                {!hasProdData && <option value="" disabled>No year data</option>}
                             </select>
                             <button
                                 className={`font-bold py-4 px-6 rounded-lg transition duration-300 ease-in-out transform flex-1
-                                ${hasProductionData && !loadingReport && !loadingExcel ? 'bg-blue-600 hover:bg-blue-700 hover:scale-105 focus:ring-blue-500' : 'bg-gray-500'}
+                                ${hasProdData && !reportLoading && !excelLoading ? 'bg-blue-600 hover:bg-blue-700 hover:scale-105 focus:ring-blue-500' : 'bg-gray-500'}
                                 text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800`}
-                                onClick={handleExportReport}
-                                disabled={!hasProductionData || loadingReport || loadingExcel}
+                                onClick={handleReportExport}
+                                disabled={!hasProdData || reportLoading || excelLoading}
                             >
-                                {loadingReport ? 'Generating...' : 'Export Report'}
+                                {reportLoading ? 'Generating...' : 'Export Report'}
                             </button>
                         </>
                     )}
                     {canAccessExcel && (
                         <button
                             className={`font-bold py-4 px-6 rounded-lg transition duration-300 ease-in-out transform flex-1
-                            ${hasProductionData && !loadingReport && !loadingExcel
+                            ${hasProdData && !reportLoading && !excelLoading
                                 ? 'bg-green-600 hover:bg-green-700 hover:scale-105 focus:ring-green-500 focus:ring-offset-2 focus:ring-offset-gray-800'
                                 : 'bg-gray-500 text-gray-300'
                             }
                             text-white focus:outline-none focus:ring-2`}
-                            onClick={handleExportExcel}
-                            disabled={!hasProductionData || loadingReport || loadingExcel}
+                            onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+                            onClick={handleExcelExport}
+                            disabled={!hasProdData || reportLoading || excelLoading}
                         >
-                            {loadingExcel ? 'Exporting...' : 'Export Excel'}
+                            {excelLoading ? 'Exporting...' : 'Export Excel'}
                         </button>
                     )}
-                    {canAccessNewPlan && (
+                    {canAccessPlan && (
                         <button
                             className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-4 px-6
                             rounded-lg transition duration-300 ease-in-out transform
                             hover:scale-105 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-gray-800 flex-1"
                             onClick={() => onNavigate('/new_plan')}
-                            disabled={loadingReport || loadingExcel}
+                            disabled={reportLoading || excelLoading}
                         >
                             Production
                         </button>
@@ -412,7 +422,7 @@ function Dashboard({ onNavigate, onSignout, user, userRole }) {
                 <div className="w-full bg-gray-700 p-6 rounded-lg border border-emerald-700">
                     <h2 className="text-2xl font-bold text-blue-400 mb-4">Important Announcements</h2>
                     {isEditingNews && canManageNews ? (
-                        <form onSubmit={handleSaveNews} className="space-y-4">
+                        <form onSubmit={handleNewsSave} className="space-y-4">
                             <div>
                                 <label htmlFor="newsTitle" className="block text-gray-300 text-sm font-bold mb-1">Title:</label>
                                 <input
@@ -441,15 +451,15 @@ function Dashboard({ onNavigate, onSignout, user, userRole }) {
                                 <button
                                     type="submit"
                                     className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-4 rounded-lg flex-grow
-                                         transition duration-300 ease-in-out transform hover:scale-105"
+                                             transition duration-300 ease-in-out transform hover:scale-105"
                                 >
                                     Save
                                 </button>
                                 <button
                                     type="button"
-                                    onClick={handleCancelEditNews}
+                                    onClick={handleCancelNewsEdit}
                                     className="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg flex-grow
-                                         transition duration-300 ease-in-out transform hover:scale-105"
+                                             transition duration-300 ease-in-out transform hover:scale-105"
                                 >
                                     Cancel
                                 </button>
@@ -470,7 +480,7 @@ function Dashboard({ onNavigate, onSignout, user, userRole }) {
                                             >
                                                 {canManageNews && (
                                                     <button
-                                                        onClick={() => handleEditNewsClick(item)}
+                                                        onClick={() => handleNewsEdit(item)}
                                                         className="absolute top-3 right-3 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold py-1.5 px-3 rounded-md
                                                         opacity-0 group-hover:opacity-100 transition-opacity duration-200 transform hover:scale-105"
                                                     >
@@ -479,7 +489,7 @@ function Dashboard({ onNavigate, onSignout, user, userRole }) {
                                                 )}
                                                 {canManageNews && (
                                                     <button
-                                                        onClick={() => handleDeleteNews(item.id)}
+                                                        onClick={() => handleNewsDelete(item.id)}
                                                         className="absolute top-3 right-20 bg-red-600 hover:bg-red-700 text-white text-sm font-bold py-1.5 px-3 rounded-md
                                                         opacity-0 group-hover:opacity-100 transition-opacity duration-200 transform hover:scale-105"
                                                     >
@@ -506,10 +516,10 @@ function Dashboard({ onNavigate, onSignout, user, userRole }) {
                             )}
                             {canManageNews && !isEditingNews && (
                                 <button
-                                    onClick={() => handleEditNewsClick()}
+                                    onClick={() => handleNewsEdit()}
                                     className="mt-4 bg-yellow-600 hover:bg-yellow-700 text-white font-bold py-2 px-4 rounded-lg w-full
-                                         transition duration-300 ease-in-out transform hover:scale-105
-                                         focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 focus:ring-offset-gray-800"
+                                             transition duration-300 ease-in-out transform hover:scale-105
+                                             focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 focus:ring-offset-gray-800"
                                 >
                                     Add New Announcement
                                 </button>

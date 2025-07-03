@@ -1,31 +1,8 @@
-import React from 'react';
-import { Bar } from 'react-chartjs-2';
-import {
-    Chart as ChartJS,
-    CategoryScale,
-    LinearScale,
-    BarElement,
-    PointElement,
-    LineElement,
-    Title,
-    Tooltip,
-    Legend,
-} from 'chart.js';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
+import Chart from 'chart.js/auto';
 
-ChartJS.register(
-    CategoryScale,
-    LinearScale,
-    BarElement,
-    PointElement,
-    LineElement,
-    Title,
-    Tooltip,
-    Legend
-);
-
-const thaiMonths = [
+const MONTH_NAMES_SHORT = [
     'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
     'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
 ];
@@ -41,19 +18,99 @@ const COLORS = {
     barBorderColor: 'rgba(0, 0, 0, 1)',
 };
 
-const sumDailyValues = (dailyArray) => dailyArray?.reduce((sum, entry) => sum + entry.value, 0) || 0;
-
-const getDailyValue = (dailyArray, day) => {
+const sumValues = (dailyArray) => dailyArray?.reduce((sum, entry) => sum + entry.value, 0) || 0;
+const getDayVal = (dailyArray, day) => {
     const entry = dailyArray?.find(d => d.day === day);
     return entry ? entry.value : 0;
 };
-
-const getMonthYearLabel = (month, year) => {
+const getMonYearLabel = (month, year) => {
     const yearSuffix = String(year).slice(2);
-    return `${thaiMonths[month]} ${yearSuffix}`;
+    return `${MONTH_NAMES_SHORT[month]} ${yearSuffix}`;
 };
 
-const getCommonChartOptions = (modelName, maxCapacity, isPdf = false, numLabels = 1, isDailyReport = false) => ({
+const getChartDatasets = (labels, prodData, forecastData, capData, capOtData) => {
+    const datasets = [];
+
+    const allDataAreZero =
+        prodData.every(val => val === 0) &&
+        forecastData.every(val => val === 0) &&
+        capData.every(val => val === 0) &&
+        capOtData.every(val => val === 0);
+
+    if (allDataAreZero) {
+        return {
+            labels: labels,
+            datasets: []
+        };
+    }
+
+    if (prodData.some(val => val !== 0)) {
+        datasets.push({
+            type: 'bar',
+            label: 'Production',
+            backgroundColor: COLORS.production,
+            borderColor: 'transparent',
+            borderWidth: 1,
+            data: prodData,
+            order: 2,
+            barPercentage: 0.8,
+            categoryPercentage: 0.8,
+        });
+    }
+
+    if (forecastData.some(val => val !== 0)) {
+        datasets.push({
+            type: 'bar',
+            label: 'Forecast',
+            backgroundColor: COLORS.forecast,
+            borderColor: 'transparent',
+            borderWidth: 1,
+            data: forecastData,
+            order: 2,
+            barPercentage: 0.8,
+            categoryPercentage: 0.8,
+        });
+    }
+
+    if (capData.some(val => val !== 0)) {
+        datasets.push({
+            type: 'line',
+            label: 'Capacity',
+            borderColor: COLORS.capacity,
+            backgroundColor: COLORS.capacity,
+            borderWidth: 2,
+            fill: false,
+            data: capData,
+            tension: 0.1,
+            pointRadius: 1.6,
+            pointBackgroundColor: COLORS.capacity,
+            order: 1,
+        });
+    }
+
+    if (capOtData.some(val => val !== 0)) {
+        datasets.push({
+            type: 'line',
+            label: 'Capacity + OT',
+            borderColor: COLORS.capacityOT,
+            backgroundColor: COLORS.capacityOT,
+            borderWidth: 2,
+            fill: false,
+            data: capOtData,
+            tension: 0.1,
+            pointRadius: 1.6,
+            pointBackgroundColor: COLORS.capacityOT,
+            order: 1,
+        });
+    }
+
+    return {
+        labels,
+        datasets,
+    };
+};
+
+const getChartOpts = (modelName, maxCapacity, isPdf = false, numLabels = 1, isDailyReport = false) => ({
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
@@ -136,95 +193,15 @@ const getCommonChartOptions = (modelName, maxCapacity, isPdf = false, numLabels 
     },
 });
 
-const getChartData = (labels, productionData, forecastData, capacityData, capacityOtData, isDailyReport = false) => {
-    const datasets = [];
-
-    const allDataAreZero =
-        productionData.every(val => val === 0) &&
-        forecastData.every(val => val === 0) &&
-        capacityData.every(val => val === 0) &&
-        capacityOtData.every(val => val === 0);
-
-    if (allDataAreZero) {
-        return {
-            labels: labels,
-            datasets: []
-        };
-    }
-
-    if (productionData.some(val => val !== 0)) {
-        datasets.push({
-            type: 'bar',
-            label: 'Production',
-            backgroundColor: COLORS.production,
-            borderColor: 'transparent',
-            borderWidth: 1,
-            data: productionData,
-            order: 2,
-            barPercentage: 0.8,
-            categoryPercentage: 0.8,
-        });
-    }
-
-    if (forecastData.some(val => val !== 0)) {
-        datasets.push({
-            type: 'bar',
-            label: 'Forecast',
-            backgroundColor: COLORS.forecast,
-            borderColor: 'transparent',
-            borderWidth: 1,
-            data: forecastData,
-            order: 2,
-            barPercentage: 0.8,
-            categoryPercentage: 0.8,
-        });
-    }
-
-    if (capacityData.some(val => val !== 0)) {
-        datasets.push({
-            type: 'line',
-            label: 'Capacity',
-            borderColor: COLORS.capacity,
-            backgroundColor: COLORS.capacity,
-            borderWidth: 2,
-            fill: false,
-            data: capacityData,
-            tension: 0.1,
-            pointRadius: 1.6,
-            pointBackgroundColor: COLORS.capacity,
-            order: 1,
-        });
-    }
-
-    if (capacityOtData.some(val => val !== 0)) {
-        datasets.push({
-            type: 'line',
-            label: 'Capacity + OT',
-            borderColor: COLORS.capacityOT,
-            backgroundColor: COLORS.capacityOT,
-            borderWidth: 2,
-            fill: false,
-            data: capacityOtData,
-            tension: 0.1,
-            pointRadius: 1.6,
-            pointBackgroundColor: COLORS.capacityOT,
-            order: 1,
-        });
-    }
-
-    return {
-        labels,
-        datasets,
-    };
-};
-
-export const getReport = async (allProductions, selectedMonth, selectedYear) => {
+export const getReport = async (allProds, selectedMonth, selectedYear) => {
     const tempDiv = document.createElement('div');
     tempDiv.style.width = '210mm';
     tempDiv.style.margin = '20px auto';
+    tempDiv.style.position = 'absolute';
+    tempDiv.style.left = '-9999px';
     document.body.appendChild(tempDiv);
 
-    const groupedProductionsByPlant = allProductions.reduce((acc, item) => {
+    const prodsByPlant = allProds.reduce((acc, item) => {
         if (!acc[item.plant]) {
             acc[item.plant] = [];
         }
@@ -232,7 +209,7 @@ export const getReport = async (allProductions, selectedMonth, selectedYear) => 
         return acc;
     }, {});
 
-    const sortedPlantNames = Object.keys(groupedProductionsByPlant).sort((a, b) => a.localeCompare(b, 'th', { sensitivity: 'base' }));
+    const sortedPlants = Object.keys(prodsByPlant).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
 
     const pdf = new jsPDF('p', 'mm', 'a4');
     const pageWidth = pdf.internal.pageSize.getWidth();
@@ -244,29 +221,29 @@ export const getReport = async (allProductions, selectedMonth, selectedYear) => 
     const gridColumnCount = isDailyReport ? 1 : 2;
     const chartHeightPdf = '80mm';
 
-    let pageIndex = 0;
+    let pageIdx = 0;
 
-    for (const plantName of sortedPlantNames) {
-        const plantModels = [];
-        groupedProductionsByPlant[plantName].forEach(plantEntry => {
+    for (const plant of sortedPlants) {
+        const plantModList = [];
+        prodsByPlant[plant].forEach(plantEntry => {
             if (plantEntry.models && Array.isArray(plantEntry.models)) {
                 const sortedModels = [...plantEntry.models].sort((a, b) => a.name.localeCompare(b.name));
-                plantModels.push(...sortedModels.map(model => ({ model, plant: plantEntry.plant, plantId: plantEntry.id })));
+                plantModList.push(...sortedModels.map(model => ({ model, plant: plantEntry.plant, plantId: plantEntry.id })));
             }
         });
 
-        const plantModelChunks = [];
-        for (let i = 0; i < plantModels.length; i += modelsPerPage) {
-            plantModelChunks.push(plantModels.slice(i, i + modelsPerPage));
+        const modelChunks = [];
+        for (let i = 0; i < plantModList.length; i += modelsPerPage) {
+            modelChunks.push(plantModList.slice(i, i + modelsPerPage));
         }
 
-        let firstChunkForPlant = true;
-        for (const modelChunk of plantModelChunks) {
-            if (pageIndex > 0 || !firstChunkForPlant) {
+        let isFirstChunk = true;
+        for (const chunk of modelChunks) {
+            if (pageIdx > 0 || !isFirstChunk) {
                 pdf.addPage();
             }
-            firstChunkForPlant = false;
-            pageIndex++;
+            isFirstChunk = false;
+            pageIdx++;
 
             let htmlContent = `
                 <div style="background-color: #ffffff; color: #333333; padding: 5mm; font-family: 'Inter', sans-serif; width: 210mm; box-sizing: border-box;">
@@ -274,25 +251,25 @@ export const getReport = async (allProductions, selectedMonth, selectedYear) => 
                         Summary Report Production, Forecast, Capacity, and Capacity + OT
                     </h1>
                     <h2 style="font-size: 14px; font-weight: bold; text-align: center; color: #333; margin-top: 5mm; margin-bottom: 5mm;">
-                        Plant: ${plantName}
+                        Plant: ${plant}
                     </h2>
                     <br />
                     <div style="display: grid; grid-template-columns: repeat(${gridColumnCount}, 1fr); gap: 5mm; width: 100%;">
             `;
 
-            const chartPromises = [];
+            const chartCanvases = [];
 
-            for (const { model, plant, plantId } of modelChunk) {
-                const safeModelData = (model && Array.isArray(model.data)) ? model.data : [];
+            for (const [index, { model, plantId }] of chunk.entries()) {
+                const modelData = (model && Array.isArray(model.data)) ? model.data : [];
 
-                const productionDataForChart = [];
-                const forecastDataForChart = [];
-                const capacityDataForChart = [];
-                const capacityOtDataForChart = [];
-                let chartLabels = [];
+                const prodData = [];
+                const forecastData = [];
+                const capData = [];
+                const capOtData = [];
+                let labels = [];
 
-                let tableHeaders;
-                let tableRows = {
+                let tableHdrs;
+                let tableRowsData = {
                     'Forecast': [],
                     'Capacity': [],
                     'Capacity + OT': [],
@@ -300,69 +277,68 @@ export const getReport = async (allProductions, selectedMonth, selectedYear) => 
                 };
 
                 if (isDailyReport) {
-                    tableHeaders = Array.from({ length: daysInMonth }, (_, i) => i + 1);
-                    chartLabels = tableHeaders;
+                    tableHdrs = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+                    labels = tableHdrs;
 
-                    const monthlyEntry = safeModelData.find(data =>
+                    const monthlyEnt = modelData.find(data =>
                         data.year === selectedYear && data.month === selectedMonth
                     );
 
                     for (let day = 1; day <= daysInMonth; day++) {
-                        const dailyForecast = getDailyValue(monthlyEntry?.data?.Forecast, day);
-                        const dailyCapacity = getDailyValue(monthlyEntry?.data?.Capacity, day);
-                        const dailyCapacityOT = getDailyValue(monthlyEntry?.data?.["Capacity + OT"], day);
-                        const dailyProduction = getDailyValue(monthlyEntry?.data?.Production, day);
+                        const dailyForecastVal = getDayVal(monthlyEnt?.data?.Forecast, day);
+                        const dailyCapVal = getDayVal(monthlyEnt?.data?.Capacity, day);
+                        const dailyCapOtVal = getDayVal(monthlyEnt?.data?.["Capacity + OT"], day);
+                        const dailyProdVal = getDayVal(monthlyEnt?.data?.Production, day);
 
-                        tableRows['Forecast'].push(dailyForecast);
-                        tableRows['Capacity'].push(dailyCapacity);
-                        tableRows['Capacity + OT'].push(dailyCapacityOT);
-                        tableRows['Production'].push(dailyProduction);
+                        tableRowsData['Forecast'].push(dailyForecastVal);
+                        tableRowsData['Capacity'].push(dailyCapVal);
+                        tableRowsData['Capacity + OT'].push(dailyCapOtVal);
+                        tableRowsData['Production'].push(dailyProdVal);
 
-                        productionDataForChart.push(dailyProduction);
-                        forecastDataForChart.push(dailyForecast);
-                        capacityDataForChart.push(dailyCapacity);
-                        capacityOtDataForChart.push(dailyCapacityOT);
+                        prodData.push(dailyProdVal);
+                        forecastData.push(dailyForecastVal);
+                        capData.push(dailyCapVal);
+                        capOtData.push(dailyCapOtVal);
                     }
-
                 } else {
-                    let monthsToIncludeForModel = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
-                    tableHeaders = monthsToIncludeForModel.map(monthNum => getMonthYearLabel(monthNum, selectedYear));
-                    chartLabels = tableHeaders;
+                    let monthsForChart = Array.from({ length: 12 }, (_, i) => i);
+                    tableHdrs = monthsForChart.map(monthNum => getMonYearLabel(monthNum, selectedYear));
+                    labels = tableHdrs;
 
-                    monthsToIncludeForModel.forEach(monthNum => {
-                        const monthlyEntry = safeModelData.find(data =>
+                    monthsForChart.forEach(monthNum => {
+                        const monthlyEnt = modelData.find(data =>
                             data.year === selectedYear && data.month === monthNum
                         );
 
-                        const monthlyProdSum = monthlyEntry?.data?.Production ? sumDailyValues(monthlyEntry.data.Production) : 0;
-                        const monthlyForecastSum = monthlyEntry?.data?.Forecast ? sumDailyValues(monthlyEntry.data.Forecast) : 0;
-                        const monthlyCapacitySum = monthlyEntry?.data?.Capacity ? sumDailyValues(monthlyEntry.data.Capacity) : 0;
-                        const monthlyCapacityOTSum = monthlyEntry?.data?.["Capacity + OT"] ? sumDailyValues(monthlyEntry.data["Capacity + OT"]) : 0;
+                        const monthlyProdSumVal = monthlyEnt?.data?.Production ? sumValues(monthlyEnt.data.Production) : 0;
+                        const monthlyForecastSumVal = monthlyEnt?.data?.Forecast ? sumValues(monthlyEnt.data.Forecast) : 0;
+                        const monthlyCapSumVal = monthlyEnt?.data?.Capacity ? sumValues(monthlyEnt.data.Capacity) : 0;
+                        const monthlyCapOtSumVal = monthlyEnt?.data?.["Capacity + OT"] ? sumValues(monthlyEnt.data["Capacity + OT"]) : 0;
 
-                        productionDataForChart.push(monthlyProdSum);
-                        forecastDataForChart.push(monthlyForecastSum);
-                        capacityDataForChart.push(monthlyCapacitySum);
-                        capacityOtDataForChart.push(monthlyCapacityOTSum);
+                        prodData.push(monthlyProdSumVal);
+                        forecastData.push(monthlyForecastSumVal);
+                        capData.push(monthlyCapSumVal);
+                        capOtData.push(monthlyCapOtSumVal);
 
-                        tableRows['Forecast'].push(monthlyForecastSum);
-                        tableRows['Capacity'].push(monthlyCapacitySum);
-                        tableRows['Capacity + OT'].push(monthlyCapacityOTSum);
-                        tableRows['Production'].push(monthlyProdSum);
+                        tableRowsData['Forecast'].push(monthlyForecastSumVal);
+                        tableRowsData['Capacity'].push(monthlyCapSumVal);
+                        tableRowsData['Capacity + OT'].push(monthlyCapOtSumVal);
+                        tableRowsData['Production'].push(monthlyProdSumVal);
                     });
                 }
 
-                const chartConfig = getChartData(
-                    chartLabels,
-                    productionDataForChart,
-                    forecastDataForChart,
-                    capacityDataForChart,
-                    capacityOtDataForChart,
-                    isDailyReport
+                const chartCfg = getChartDatasets(
+                    labels,
+                    prodData,
+                    forecastData,
+                    capData,
+                    capOtData
                 );
-                const chartOptions = getCommonChartOptions(model.name, model.maxCapacity, true, chartLabels.length, isDailyReport);
+                const chartOpts = getChartOpts(model.name, model.maxCapacity, true, labels.length, isDailyReport);
 
-                const safeModelName = model.name.replace(/[^a-zA-Z0-9-_]/g, '');
-                const chartId = `modelChart-${safeModelName}-${plantId}-${pageIndex}`;
+                const sanitizedPlantId = plantId.replace(/[^a-zA-Z0-9]/g, '_');
+                const sanitizedModelName = model.name.replace(/[^a-zA-Z0-9]/g, '_');
+                const canvasId = `chart-${sanitizedPlantId}-${sanitizedModelName}-${pageIdx}-${index}`;
 
                 htmlContent += `
                     <div style="background-color: #ffffff; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05); border: 1px solid #eee; width: 100%; height: ${chartHeightPdf}; display: flex; flex-direction: column; justify-content: space-between; overflow: hidden; border-radius: 4px;">
@@ -370,10 +346,10 @@ export const getReport = async (allProductions, selectedMonth, selectedYear) => 
                             <table style="min-width: ${isDailyReport ? 'max-content' : '100%'}; border-collapse: collapse; table-layout: ${isDailyReport ? 'fixed' : 'auto'}; width: 100%;">
                                 <thead style="background-color: #f0f0f0;">
                                     <tr>
-                                        <th style="padding: 2px; text-align: left; font-size: 5px; font-weight: bold; color: #374151; text-transform: uppercase; white-space: nowrap; width: ${isDailyReport ? '30px' : '60px'};">
+                                        <th style="padding: 2px; text-align: left; font-size: 5px; font-weight: bold; color: #374151; text-transform: uppercase; white-space: nowrap; width: ${isDailyReport ? '30px' : '20px'};">
                                             Status
                                         </th>
-                                        ${tableHeaders.map(header => `
+                                        ${tableHdrs.map(header => `
                                             <th style="padding: 2px; text-align: center; font-size: 5px; font-weight: bold; color: #374151; white-space: nowrap; width: ${isDailyReport ? '18px' : 'auto'};">
                                                 ${header}
                                             </th>
@@ -381,12 +357,12 @@ export const getReport = async (allProductions, selectedMonth, selectedYear) => 
                                     </tr>
                                 </thead>
                                 <tbody style="background-color: #ffffff; border-top: 1px solid #e5e7eb;">
-                                    ${Object.keys(tableRows).map(rowName => `
+                                    ${Object.keys(tableRowsData).map(rowName => `
                                         <tr>
                                             <td style="padding: 2px; white-space: nowrap; font-size: 5px; font-weight: 500; color: #111827; word-wrap: break-word;">
                                                 ${rowName}
                                             </td>
-                                            ${tableRows[rowName].map((value, idx) => `
+                                            ${tableRowsData[rowName].map((value, idx) => `
                                                 <td key=${idx} style="padding: 2px; white-space: nowrap; font-size: 5px; color: #374151; text-align: center; word-wrap: break-word;">
                                                     ${new Intl.NumberFormat('en-US').format(value)}
                                                 </td>
@@ -396,110 +372,36 @@ export const getReport = async (allProductions, selectedMonth, selectedYear) => 
                                 </tbody>
                             </table>
                         </div>
-                        <h3 style="font-size: 9px; font-weight: bold; text-align: center; margin-top: 2mm; color: #333;">${model.name}</h3>
+                        <h3 style="font-size: 9px; font-weight: bold; text-align: center; margin: 4mm 0 2mm; color: #333;">${model.name}</h3> <!-- Adjusted margin -->
                         <div style="flex-grow: 1; display: flex; justify-content: center; align-items: center; overflow: hidden;">
-                            <canvas id="${chartId}" width="300" height="200" style="max-width: 100%; max-height: 100%; display: block;"></canvas>
+                            <canvas id="${canvasId}" style="width: 100%; height: 100%;"></canvas>
                         </div>
                     </div>
                 `;
+
+                chartCanvases.push({ canvasId, chartCfg, chartOpts });
             }
 
             htmlContent += `</div></div>`;
             tempDiv.innerHTML = htmlContent;
 
-            for (const { model, plant, plantId } of modelChunk) {
-                const safeModelName = model.name.replace(/[^a-zA-Z0-9-_]/g, '');
-                const chartId = `modelChart-${safeModelName}-${plantId}-${pageIndex}`;
-                const canvas = tempDiv.querySelector(`#${chartId}`);
+            await new Promise(resolve => setTimeout(resolve, 100));
 
+            for (const { canvasId, chartCfg, chartOpts } of chartCanvases) {
+                const canvas = tempDiv.querySelector(`#${canvasId}`);
                 if (canvas) {
-                    const safeModelData = (model && Array.isArray(model.data)) ? model.data : [];
-
-                    const productionDataForChart = [];
-                    const forecastDataForChart = [];
-                    const capacityDataForChart = [];
-                    const capacityOtDataForChart = [];
-                    let chartLabels = [];
-
-                    if (isDailyReport) {
-                        chartLabels = Array.from({ length: daysInMonth }, (_, i) => i + 1);
-                        const monthlyEntry = safeModelData.find(data =>
-                            data.year === selectedYear && data.month === selectedMonth
-                        );
-                        for (let day = 1; day <= daysInMonth; day++) {
-                            productionDataForChart.push(getDailyValue(monthlyEntry?.data?.Production, day));
-                            forecastDataForChart.push(getDailyValue(monthlyEntry?.data?.Forecast, day));
-                            capacityDataForChart.push(getDailyValue(monthlyEntry?.data?.Capacity, day));
-                            capacityOtDataForChart.push(getDailyValue(monthlyEntry?.data?.["Capacity + OT"], day));
-                        }
-                    } else {
-                        let monthsToIncludeForModel = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
-                        chartLabels = monthsToIncludeForModel.map(monthNum => getMonthYearLabel(monthNum, selectedYear));
-
-                        monthsToIncludeForModel.forEach(monthNum => {
-                            const monthlyEntry = safeModelData.find(data =>
-                                data.year === selectedYear && data.month === monthNum
-                            );
-                            productionDataForChart.push(monthlyEntry?.data?.Production ? sumDailyValues(monthlyEntry.data.Production) : 0);
-                            forecastDataForChart.push(monthlyEntry?.data?.Forecast ? sumDailyValues(monthlyEntry.data.Forecast) : 0);
-                            capacityDataForChart.push(monthlyEntry?.data?.Capacity ? sumDailyValues(monthlyEntry.data.Capacity) : 0);
-                            capacityOtDataForChart.push(monthlyEntry?.data?.["Capacity + OT"] ? sumDailyValues(monthlyEntry.data["Capacity + OT"]) : 0);
-                        });
-                    }
-
-                    const chartConfig = getChartData(
-                        chartLabels,
-                        productionDataForChart,
-                        forecastDataForChart,
-                        capacityDataForChart,
-                        capacityOtDataForChart,
-                        isDailyReport
-                    );
-                    const chartOptions = getCommonChartOptions(model.name, model.maxCapacity, true, chartLabels.length, isDailyReport);
-
-                    chartPromises.push(new Promise((resolveChart) => {
-                        try {
-                            const existingChart = ChartJS.getChart(canvas);
-                            if (existingChart) {
-                                existingChart.destroy();
-                            }
-
-                            const chartInstance = new ChartJS(canvas, {
-                                type: 'bar',
-                                data: chartConfig,
-                                options: {
-                                    ...chartOptions,
-                                    animation: {
-                                        duration: 0,
-                                        onComplete: () => resolveChart(),
-                                        onProgress: () => {}
-                                    }
-                                },
-                            });
-
-                            if (chartConfig.datasets.length === 0) {
-                                resolveChart();
-                            }
-
-                        } catch (chartError) {
-                            console.error(`Error initializing Chart.js for model ${model.name}:`, chartError);
-                            if (canvas) {
-                                const ctx = canvas.getContext('2d');
-                                if (ctx) {
-                                    ctx.font = '8px Arial';
-                                    ctx.fillStyle = 'red';
-                                    ctx.fillText('Chart Error', 10, 50);
-                                }
-                            }
-                            resolveChart();
-                        }
-                    }));
+                    chartOpts.plugins.title.text = '';
+                    new Chart(canvas, {
+                        type: 'bar',
+                        data: chartCfg,
+                        options: chartOpts
+                    });
+                } else {
+                    console.error(`Canvas with ID #${canvasId} not found`);
                 }
             }
 
-            await Promise.all(chartPromises);
-
-            await new Promise(resolve => setTimeout(resolve, 500));
+            await new Promise(resolve => setTimeout(resolve, 1000));
 
             try {
                 const canvas = await html2canvas(tempDiv, {
@@ -524,11 +426,12 @@ export const getReport = async (allProductions, selectedMonth, selectedYear) => 
     }
 
     try {
-        const fileNameMonthPart = selectedMonth === -1 ? 'Year' : thaiMonths[selectedMonth];
-        pdf.save(`NZT_Production_Report_${fileNameMonthPart}_${selectedYear + 543}.pdf`);
+        const fileMonPart = selectedMonth === -1 ? 'Year' : MONTH_NAMES_SHORT[selectedMonth];
+        pdf.save(`NZT_Production_Report_${fileMonPart}_${selectedYear}.pdf`);
     } catch (error) {
         console.error("Error saving PDF:", error);
     } finally {
+        tempDiv.innerHTML = '';
         document.body.removeChild(tempDiv);
     }
 };

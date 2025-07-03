@@ -2,110 +2,90 @@ import React, { useState, useEffect } from 'react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from './firebaseConfig';
+
 import SignIn from './page/sign_in';
 import Dashboard from './page/dashboard';
 import NewPlan from './page/new_plan';
 import Production from './page/production';
+
 import './App.css';
 
 function App() {
-    const [currentPath, setCurrentPath] = useState(window.location.pathname);
-    const [productionIdFromUrl, setProductionIdFromUrl] = useState(null);
+    const [path, setPath] = useState(window.location.pathname);
+    const [prodId, setProdId] = useState(null);
     const [user, setUser] = useState(null);
     const [userRole, setUserRole] = useState(null);
-    const [loadingAuth, setLoadingAuth] = useState(true);
+    const [authLoading, setAuthLoading] = useState(true);
+
+    const checkUserRole = async (uid) => {
+        const roles = ['admin', 'manager', 'staff'];
+        for (let role of roles) {
+            const roleDocRef = doc(db, 'roles', role);
+            const roleDocSnap = await getDoc(roleDocRef);
+            if (roleDocSnap.exists() && Array.isArray(roleDocSnap.data().userId) && roleDocSnap.data().userId.includes(uid)) {
+                return role;
+            }
+        }
+        return 'staff';
+    };
 
     useEffect(() => {
-        const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
+        const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
             setUser(currentUser);
             if (currentUser) {
-                try {
-                    const rolesDocRef = doc(db, 'roles', 'admin');
-                    const rolesDocSnap = await getDoc(rolesDocRef);
-
-                    let foundRole = null;
-
-                    if (rolesDocSnap.exists() && Array.isArray(rolesDocSnap.data().userId) && rolesDocSnap.data().userId.includes(currentUser.uid)) {
-                        foundRole = 'admin';
-                    } else {
-                        const managerRolesRef = doc(db, 'roles', 'manager');
-                        const managerRolesSnap = await getDoc(managerRolesRef);
-                        if (managerRolesSnap.exists() && Array.isArray(managerRolesSnap.data().userId) && managerRolesSnap.data().userId.includes(currentUser.uid)) {
-                            foundRole = 'manager';
-                        } else {
-                            const staffRolesRef = doc(db, 'roles', 'staff');
-                            const staffRolesSnap = await getDoc(staffRolesRef);
-                            if (staffRolesSnap.exists() && Array.isArray(staffRolesSnap.data().userId) && staffRolesSnap.data().userId.includes(currentUser.uid)) {
-                                foundRole = 'staff';
-                            }
-                        }
-                    }
-
-                    if (foundRole) {
-                        setUserRole(foundRole);
-                    } else {
-                        console.warn("No specific role found for this user. Defaulting to 'staff'.");
-                        setUserRole('staff');
-                    }
-
-                } catch (error) {
-                    console.error("Error fetching user role:", error);
-                    setUserRole('staff');
-                }
+                const role = await checkUserRole(currentUser.uid);
+                setUserRole(role);
             } else {
                 setUserRole(null);
             }
-            setLoadingAuth(false);
+            setAuthLoading(false);
 
             if (!currentUser && window.location.pathname !== '/') {
                 window.history.replaceState({}, '', '/');
-                setCurrentPath('/');
+                setPath('/');
             }
         });
 
         const handlePopState = () => {
-            setCurrentPath(window.location.pathname);
+            setPath(window.location.pathname);
             if (window.location.pathname === '/production') {
                 const params = new URLSearchParams(window.location.search);
-                setProductionIdFromUrl(parseInt(params.get('id')));
+                setProdId(parseInt(params.get('id')));
             } else {
-                setProductionIdFromUrl(null);
+                setProdId(null);
             }
         };
 
         window.addEventListener('popstate', handlePopState);
 
         return () => {
-            unsubscribeAuth();
+            unsubscribe();
             window.removeEventListener('popstate', handlePopState);
         };
     }, []);
 
-    const handleNavigate = (path, id = null) => {
-        let url = path;
-        if (path === '/production' && id !== null) {
-            url = `${path}?id=${id}`;
+    const navigate = (newPath, id = null) => {
+        let url = newPath;
+        if (newPath === '/production' && id !== null) {
+            url = `${newPath}?id=${id}`;
         }
         window.history.pushState({}, '', url);
-        setCurrentPath(path);
-        setProductionIdFromUrl(id);
+        setPath(newPath);
+        setProdId(id);
     };
 
-    const handleSignInSuccess = () => {
-        handleNavigate('/dashboard');
-    };
+    const handleSignInSuccess = () => navigate('/dashboard');
 
-    const handleLogout = async () => {
+    const handleSignout = async () => {
         try {
             await signOut(auth);
-            console.log("User logged out!");
-            handleNavigate('/');
+            navigate('/');
         } catch (error) {
-            console.error("Error logging out:", error.message);
+            console.error("Signout error:", error.message);
         }
     };
 
-    if (loadingAuth) {
+    if (authLoading) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-gray-900 text-white p-4">
                 <p className="text-blue-400">Checking user status...</p>
@@ -113,36 +93,36 @@ function App() {
         );
     }
 
-    if (!user && currentPath !== '/') {
-        return <SignIn onSignIn={handleSignInSuccess} />;
-    }
+    if (!user && path !== '/') return <SignIn onSignIn={handleSignInSuccess} />;
 
-    if (user && currentPath === '/') {
-        return <Dashboard onNavigate={handleNavigate} onLogout={handleLogout} user={user} userRole={userRole} />;
-    }
+    if (user && path === '/') return <Dashboard onNavigate={navigate} onSignout={handleSignout} user={user} userRole={userRole} />;
 
-    switch (currentPath) {
-        case '/':
+    const renderPage = () => {
+        if (!user) {
             return <SignIn onSignIn={handleSignInSuccess} />;
-        case '/dashboard':
-            return user ? <Dashboard onNavigate={handleNavigate} onLogout={handleLogout} user={user} userRole={userRole} /> : <SignIn onSignIn={handleSignInSuccess} />;
-        case '/new_plan':
-            return user ? <NewPlan onNavigate={handleNavigate} onLogout={handleLogout} user={user} userRole={userRole} /> : <SignIn onSignIn={handleSignInSuccess} />;
-        case '/production':
-            return user ? <Production productionId={productionIdFromUrl} onNavigate={handleNavigate} onLogout={handleLogout} user={user} userRole={userRole} /> : <SignIn onSignIn={handleSignInSuccess} />;
-        default:
-            return (
-                <div className="min-h-screen flex items-center justify-center bg-gray-900 text-white p-4">
-                    <p className="text-red-500">Error: Page not found!</p>
-                    <button
-                        onClick={() => handleNavigate('/')}
-                        className="mt-4 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg"
-                    >
-                        Back to Home
-                    </button>
-                </div>
-            );
-    }
+        }
+
+        switch (path) {
+            case '/':           return <SignIn onSignIn={handleSignInSuccess} />;
+            case '/dashboard':  return <Dashboard onNavigate={navigate} onSignout={handleSignout} user={user} userRole={userRole} />;
+            case '/new_plan':   return <NewPlan onNavigate={navigate} onSignout={handleSignout} user={user} userRole={userRole} />;
+            case '/production': return <Production productionId={prodId} onNavigate={navigate} onSignout={handleSignout} user={user} userRole={userRole} />;
+            default:
+                return (
+                    <div className="min-h-screen flex items-center justify-center bg-gray-900 text-white p-4">
+                        <p className="text-red-500">Error: Page not found!</p>
+                        <button
+                            onClick={() => navigate('/')}
+                            className="mt-4 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg"
+                        >
+                            Back to Home
+                        </button>
+                    </div>
+                );
+        }
+    };
+
+    return renderPage();
 }
 
 export default App;
