@@ -373,44 +373,39 @@ function Production({ onNavigate }) {
         <h1 className="text-4xl font-extrabold text-center text-emerald-300 mb-6">
           Production Report: {selectedProduction.plant}
         </h1>
-        <div className="flex flex-col items-start md:flex-row md:items-center md:justify-between text-lg text-gray-300 mb-6">
-          <p className="text-left mb-4 md:mb-0">
-            <span className="font-semibold text-blue-300">Responsible Person:</span> {selectedProduction.responsiblePerson || 'Not specified'}
+        <div className="flex flex-col items-start md:flex-row md:items-center md:justify-end text-lg text-gray-300 mb-6">
+          <p className="text-xl font-bold mb-2 md:mb-0">
+            Today: <span className="text-yellow-300">
+              {currentDateFormatted}
+            </span>
           </p>
-          <div className="flex flex-col items-end">
-            <p className="font-bold mb-2">
-              Today: <span className="text-yellow-300">
-                {currentDateFormatted}
-              </span>
-            </p>
-            <div className="flex space-x-2 items-center">
-              <label htmlFor="month-select" className="sr-only">Select Month</label>
-              <select
-                id="month-select"
-                className="bg-gray-700 text-white p-2 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                value={selectedMonth}
-                onChange={handleMonthChange}
-              >
-                {monthsToDisplay.map((monthNum) => (
-                  <option key={monthNum} value={monthNum}>
-                    {englishMonths[monthNum]}
-                  </option>
-                ))}
-              </select>
-              <label htmlFor="year-select" className="sr-only">Select Year</label>
-              <select
-                id="year-select"
-                className="bg-gray-700 text-white p-2 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                value={selectedYear}
-                onChange={handleYearChange}
-              >
-                {yearsToDisplay.map((year) => (
-                  <option key={year} value={year}>
-                    {year}
-                  </option>
-                ))}
-              </select>
-            </div>
+          <div className="flex space-x-2 items-center">
+            <label htmlFor="month-select" className="sr-only">Select Month</label>
+            <select
+              id="month-select"
+              className="bg-gray-700 text-white p-2 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              value={selectedMonth}
+              onChange={handleMonthChange}
+            >
+              {monthsToDisplay.map((monthNum) => (
+                <option key={monthNum} value={monthNum}>
+                  {englishMonths[monthNum]}
+                </option>
+              ))}
+            </select>
+            <label htmlFor="year-select" className="sr-only">Select Year</label>
+            <select
+              id="year-select"
+              className="bg-gray-700 text-white p-2 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              value={selectedYear}
+              onChange={handleYearChange}
+            >
+              {yearsToDisplay.map((year) => (
+                <option key={year} value={year}>
+                  {year}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
         {selectedProduction.models && selectedProduction.models.length > 0 ? (

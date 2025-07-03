@@ -29,12 +29,10 @@ const initialModel = {
 function NewPlan({ onNavigate, user, userRole }) {
     const [plant, setPlant] = useState('');
     const [description, setDescription] = useState('');
-    const [responsiblePerson, setResponsiblePerson] = useState('');
     const [models, setModels] = useState([{ ...initialModel }]);
 
     const [errors, setErrors] = useState({
         plant: false,
-        responsiblePerson: false,
         models: false,
         modelCapacities: {}
     });
@@ -110,13 +108,6 @@ function NewPlan({ onNavigate, user, userRole }) {
             updateError('plant', false);
         }
 
-        if (responsiblePerson.trim() === '') {
-            updateError('responsiblePerson', true);
-            isValid = false;
-        } else {
-            updateError('responsiblePerson', false);
-        }
-
         if (models.length === 0) {
             updateError('models', true);
             isValid = false;
@@ -161,7 +152,7 @@ function NewPlan({ onNavigate, user, userRole }) {
         const newProductionData = {
             plant,
             description,
-            responsiblePerson,
+            // responsiblePerson, // Removed responsiblePerson from payload
             models: models.map(model => ({
                 ...model,
                 maxCapacity: parseNumberFromFormattedString(model.maxCapacity)
@@ -184,7 +175,7 @@ function NewPlan({ onNavigate, user, userRole }) {
 
     const canSubmit =
         plant.trim() !== '' &&
-        responsiblePerson.trim() !== '' &&
+        // responsiblePerson.trim() !== '' && // Removed responsiblePerson from canSubmit logic
         models.length > 0 &&
         models.every(model =>
             model.name.trim() !== '' &&
@@ -223,29 +214,6 @@ function NewPlan({ onNavigate, user, userRole }) {
                         aria-describedby={errors.plant ? "plant-error" : undefined}
                     />
                     {errors.plant && <p id="plant-error" className="text-red-400 text-sm mt-1">Please specify the production line name.</p>}
-                </div>
-                <div>
-                    <label htmlFor="responsiblePerson" className="block text-gray-300 text-sm font-bold mb-2">
-                        Responsible Person:
-                    </label>
-                    <input
-                        id="responsiblePerson"
-                        type="text"
-                        placeholder="e.g., John Doe"
-                        value={responsiblePerson}
-                        onChange={(e) => {
-                            setResponsiblePerson(e.target.value);
-                            updateError('responsiblePerson', e.target.value.trim() === '');
-                        }}
-                        onBlur={() => updateError('responsiblePerson', responsiblePerson.trim() === '')}
-                        className={`p-3 rounded-lg border bg-gray-700 text-white w-full
-                            focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-gray-400
-                            ${errors.responsiblePerson ? 'border-red-500' : 'border-emerald-700'}`}
-                        required
-                        aria-invalid={errors.responsiblePerson ? "true" : "false"}
-                        aria-describedby={errors.responsiblePerson ? "responsiblePerson-error" : undefined}
-                    />
-                    {errors.responsiblePerson && <p id="responsiblePerson-error" className="text-red-400 text-sm mt-1">Please specify the responsible person's name.</p>}
                 </div>
                 <div>
                     <label htmlFor="description" className="block text-gray-300 text-sm font-bold mb-2">
@@ -314,8 +282,8 @@ function NewPlan({ onNavigate, user, userRole }) {
                                 type="button"
                                 onClick={() => removeModel(index)}
                                 className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg
-                                        transition duration-300 ease-in-out transform hover:scale-105
-                                        focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-gray-800 w-full sm:w-auto"
+                                         transition duration-300 ease-in-out transform hover:scale-105
+                                         focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-gray-800 w-full sm:w-auto"
                             >
                                 Delete
                             </button>
