@@ -1,5 +1,3 @@
-This README describes the nzt-production-report web application.
-nzt-production-report
 This web application is designed to manage and report on the production line operations for Nozomi Company. It provides comprehensive functionalities to monitor and analyze manufacturing output.
 Key Features
  * Production Quantity Reporting: Generates detailed reports on the quantity of various models produced within the production line.
