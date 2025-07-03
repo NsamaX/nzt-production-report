@@ -142,10 +142,10 @@ function NewPlan({ onNavigate, user, userRole }) {
         setErrors(prev => ({ ...prev, modelCapacities: newModelMaxCapacityErrors }));
 
         if (Object.keys(newModelMaxCapacityErrors).length > 0) {
-            alert('โปรดระบุ "กำลังการผลิตสูงสุด" ของแต่ละรุ่นให้ถูกต้อง (ต้องเป็นตัวเลขที่ไม่ติดลบ)');
+            alert('Please specify the "Max Capacity" for each model correctly (must be a non-negative number).');
         }
         if (newModelNameErrors) {
-            alert('โปรดระบุชื่อรุ่นให้ครบถ้วน');
+            alert('Please specify all model names.');
         }
 
         return isValid;
@@ -174,11 +174,11 @@ function NewPlan({ onNavigate, user, userRole }) {
         try {
             const docRef = await addDoc(collection(db, 'productions'), newProductionData);
             console.log('Document written with ID:', docRef.id);
-            alert('บันทึกข้อมูลการผลิตเรียบร้อยแล้ว!');
+            alert('Production data saved successfully!');
             onNavigate('/dashboard');
         } catch (e) {
             console.error("Error adding document:", e);
-            alert('เกิดข้อผิดพลาดในการบันทึกข้อมูล: ' + e.message);
+            alert('An error occurred while saving data: ' + e.message);
         }
     };
 
@@ -199,16 +199,16 @@ function NewPlan({ onNavigate, user, userRole }) {
                 className="flex flex-col space-y-6 bg-gray-800 p-8 rounded-xl shadow-lg w-full max-w-2xl"
             >
                 <h1 className="text-3xl font-extrabold text-center text-emerald-300 mb-4">
-                    เพิ่มข้อมูลการผลิต
+                    Add Production Data
                 </h1>
                 <div>
                     <label htmlFor="plant" className="block text-gray-300 text-sm font-bold mb-2">
-                        ชื่อสายการผลิต:
+                        Production Line Name:
                     </label>
                     <input
                         id="plant"
                         type="text"
-                        placeholder="เช่น สายการผลิต A"
+                        placeholder="e.g., Production Line A"
                         value={plant}
                         onChange={(e) => {
                             setPlant(e.target.value);
@@ -222,16 +222,16 @@ function NewPlan({ onNavigate, user, userRole }) {
                         aria-invalid={errors.plant ? "true" : "false"}
                         aria-describedby={errors.plant ? "plant-error" : undefined}
                     />
-                    {errors.plant && <p id="plant-error" className="text-red-400 text-sm mt-1">โปรดระบุชื่อสายการผลิต</p>}
+                    {errors.plant && <p id="plant-error" className="text-red-400 text-sm mt-1">Please specify the production line name.</p>}
                 </div>
                 <div>
                     <label htmlFor="responsiblePerson" className="block text-gray-300 text-sm font-bold mb-2">
-                        ชื่อผู้รับผิดชอบ:
+                        Responsible Person:
                     </label>
                     <input
                         id="responsiblePerson"
                         type="text"
-                        placeholder="เช่น พี่น้อง"
+                        placeholder="e.g., John Doe"
                         value={responsiblePerson}
                         onChange={(e) => {
                             setResponsiblePerson(e.target.value);
@@ -245,15 +245,15 @@ function NewPlan({ onNavigate, user, userRole }) {
                         aria-invalid={errors.responsiblePerson ? "true" : "false"}
                         aria-describedby={errors.responsiblePerson ? "responsiblePerson-error" : undefined}
                     />
-                    {errors.responsiblePerson && <p id="responsiblePerson-error" className="text-red-400 text-sm mt-1">โปรดระบุชื่อผู้รับผิดชอบ</p>}
+                    {errors.responsiblePerson && <p id="responsiblePerson-error" className="text-red-400 text-sm mt-1">Please specify the responsible person's name.</p>}
                 </div>
                 <div>
                     <label htmlFor="description" className="block text-gray-300 text-sm font-bold mb-2">
-                        คำอธิบาย:
+                        Description:
                     </label>
                     <textarea
                         id="description"
-                        placeholder="รายละเอียดเพิ่มเติมเกี่ยวกับการผลิตนี้"
+                        placeholder="Additional details about this production"
                         value={description}
                         onChange={(e) => setDescription(e.target.value)}
                         rows="3"
@@ -262,17 +262,17 @@ function NewPlan({ onNavigate, user, userRole }) {
                     ></textarea>
                 </div>
                 <div className={`border rounded-lg p-4 space-y-4 ${errors.models || Object.values(errors.modelCapacities).some(e => e) ? 'border-red-500' : 'border-gray-600'}`}>
-                    <h2 className="text-xl font-bold text-blue-400">รายการรุ่น</h2>
+                    <h2 className="text-xl font-bold text-blue-400">Model List</h2>
                     {models.map((model, index) => (
                         <div key={index} className="flex flex-col sm:flex-row sm:space-x-3 space-y-3 sm:space-y-0 items-end">
                             <div className="flex-grow-[2] w-full">
                                 <label htmlFor={`modelName-${index}`} className="block text-gray-300 text-sm font-bold mb-1">
-                                    ชื่อรุ่น {index + 1}:
+                                    Model Name {index + 1}:
                                 </label>
                                 <input
                                     id={`modelName-${index}`}
                                     type="text"
-                                    placeholder="เช่น S/W"
+                                    placeholder="e.g., S/W"
                                     value={model.name}
                                     onChange={(e) => handleModelChange(index, 'name', e.target.value)}
                                     className={`p-2 rounded-lg border bg-gray-700 text-white w-full
@@ -280,18 +280,18 @@ function NewPlan({ onNavigate, user, userRole }) {
                                         ${errors.models && model.name.trim() === '' ? 'border-red-500' : 'border-gray-500'}`}
                                     required
                                 />
-                                {errors.models && model.name.trim() === '' && <p className="text-red-400 text-sm mt-1">โปรดระบุชื่อรุ่น</p>}
+                                {errors.models && model.name.trim() === '' && <p className="text-red-400 text-sm mt-1">Please specify the model name.</p>}
                             </div>
                             <div className="flex-grow w-full">
                                 <label htmlFor={`maxCapacity-${index}`} className="block text-gray-300 text-sm font-bold mb-1">
-                                    กำลังการผลิตสูงสุด:
+                                    Max Capacity:
                                 </label>
                                 <input
                                     id={`maxCapacity-${index}`}
                                     type="text"
                                     inputMode="numeric"
                                     pattern="[0-9,]*"
-                                    placeholder="เช่น 10,000"
+                                    placeholder="e.g., 10,000"
                                     value={model.displayMaxCapacity}
                                     onChange={(e) => handleModelChange(index, 'maxCapacity', e.target.value)}
                                     onBlur={() => {
@@ -314,10 +314,10 @@ function NewPlan({ onNavigate, user, userRole }) {
                                 type="button"
                                 onClick={() => removeModel(index)}
                                 className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg
-                                    transition duration-300 ease-in-out transform hover:scale-105
-                                    focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-gray-800 w-full sm:w-auto"
+                                        transition duration-300 ease-in-out transform hover:scale-105
+                                        focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-gray-800 w-full sm:w-auto"
                             >
-                                ลบ
+                                Delete
                             </button>
                         </div>
                     ))}
@@ -328,11 +328,11 @@ function NewPlan({ onNavigate, user, userRole }) {
                             transition duration-300 ease-in-out transform hover:scale-105
                             focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-800"
                     >
-                        เพิ่มรายการรุ่น
+                        Add Model Item
                     </button>
-                    {errors.models && models.length === 0 && <p className="text-red-400 text-sm mt-1">โปรดเพิ่มรายการรุ่นอย่างน้อย 1 รายการ</p>}
+                    {errors.models && models.length === 0 && <p className="text-red-400 text-sm mt-1">Please add at least 1 model item.</p>}
                     {models.length > 0 && models.some(item => item.name.trim() === '') && (
-                        <p className="text-red-400 text-sm mt-1">โปรดระบุชื่อรุ่นให้ครบถ้วน</p>
+                        <p className="text-red-400 text-sm mt-1">Please specify all model names.</p>
                     )}
                 </div>
                 <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4 w-full justify-stretch mt-6">
@@ -343,7 +343,7 @@ function NewPlan({ onNavigate, user, userRole }) {
                             rounded-lg transition duration-300 ease-in-out transform
                             hover:scale-105 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-gray-800 flex-1"
                     >
-                        กลับสู่แผงควบคุม
+                        Back to Dashboard
                     </button>
                     <button
                         type="submit"
@@ -352,7 +352,7 @@ function NewPlan({ onNavigate, user, userRole }) {
                             ${canSubmit ? 'bg-emerald-600 hover:bg-emerald-700 hover:scale-105 focus:ring-emerald-500' : 'bg-gray-500 cursor-not-allowed'}
                             text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800`}
                     >
-                        บันทึกข้อมูล
+                        Create
                     </button>
                 </div>
             </form>

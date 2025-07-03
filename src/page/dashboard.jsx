@@ -5,11 +5,11 @@ import { getReport } from './get_report';
 import { exportExcel } from './export_excel';
 
 const thaiMonths = [
-    'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
-    'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
 ];
 
-function Dashboard({ onNavigate, onLogout, user, userRole }) {
+function Dashboard({ onNavigate, onSignout, user, userRole }) {
     const today = useMemo(() => new Date(), []);
     const currentMonth = today.getMonth();
     const currentYear = today.getFullYear();
@@ -114,7 +114,7 @@ function Dashboard({ onNavigate, onLogout, user, userRole }) {
 
     const handleEditNewsClick = (item = null) => {
         if (!canManageNews) {
-            console.warn('คุณไม่มีสิทธิ์ในการจัดการประกาศ');
+            console.warn('You do not have permission to manage announcements.');
             return;
         }
         setIsEditingNews(true);
@@ -133,7 +133,7 @@ function Dashboard({ onNavigate, onLogout, user, userRole }) {
     const handleSaveNews = async (event) => {
         event.preventDefault();
         if (currentNews.title.trim() === '' || currentNews.message.trim() === '') {
-            console.warn('โปรดกรอกหัวข้อและเนื้อหาประกาศ');
+            console.warn('Please enter both title and message for the announcement.');
             return;
         }
 
@@ -145,55 +145,55 @@ function Dashboard({ onNavigate, onLogout, user, userRole }) {
         try {
             if (currentNews.id) {
                 await updateDoc(doc(db, 'news', currentNews.id), newsPayload);
-                console.log('ประกาศถูกแก้ไขเรียบร้อยแล้ว!');
+                console.log('Announcement updated successfully!');
             } else {
                 await addDoc(collection(db, 'news'), {
                     ...newsPayload,
                     createdAt: serverTimestamp(),
                     createdBy: user?.uid || 'anonymous',
                     createdByEmail: user?.email || 'anonymous',
-                    date: new Date().toLocaleDateString('th-TH'),
+                    date: new Date().toLocaleDateString('en-US'),
                 });
-                console.log('ประกาศใหม่ถูกบันทึกเรียบร้อยแล้ว!');
+                console.log('New announcement saved successfully!');
             }
             handleCancelEditNews();
         } catch (e) {
             console.error("Error saving news:", e);
-            console.error('เกิดข้อผิดพลาดในการบันทึกประกาศ: ' + e.message);
+            console.error('An error occurred while saving the announcement: ' + e.message);
         }
     };
 
     const handleDeleteNews = async (newsId) => {
-        if (!window.confirm("คุณแน่ใจหรือไม่ที่จะลบประกาศนี้?")) return;
+        if (!window.confirm("Are you sure you want to delete this announcement?")) return;
         try {
             await deleteDoc(doc(db, 'news', newsId));
-            console.log('ประกาศถูกลบเรียบร้อยแล้ว!');
+            console.log('Announcement deleted successfully!');
         } catch (e) {
             console.error("Error deleting news:", e);
-            console.error('เกิดข้อผิดพลาดในการลบประกาศ: ' + e.message);
+            console.error('An error occurred while deleting the announcement: ' + e.message);
         }
     };
 
     const handleDeleteProduction = async (productionId) => {
         if (!isAdmin) {
-            console.warn('คุณไม่มีสิทธิ์ในการลบรายการผลิตนี้');
-            alert('คุณไม่มีสิทธิ์ในการลบรายการผลิตนี้');
+            console.warn('You do not have permission to delete this production item.');
+            alert('You do not have permission to delete this production item.');
             return;
         }
-        if (!window.confirm("คุณแน่ใจหรือไม่ที่จะลบรายการผลิตนี้? ข้อมูลทั้งหมดที่เกี่ยวข้องจะถูกลบออกด้วย!")) return;
+        if (!window.confirm("Are you sure you want to delete this production item? All related data will be deleted as well!")) return;
         try {
             await deleteDoc(doc(db, 'productions', productionId));
-            console.log('รายการผลิตถูกลบเรียบร้อยแล้ว!');
+            console.log('Production item deleted successfully!');
         } catch (e) {
             console.error("Error deleting production:", e);
-            alert('เกิดข้อผิดพลาดในการลบรายการผลิต: ' + e.message);
+            alert('An error occurred while deleting the production item: ' + e.message);
         }
     };
 
     const handleExportReport = async () => {
         if (productions.length === 0) {
-            console.warn("ไม่มีข้อมูลการผลิตที่จะสร้างรายงาน.");
-            alert("ไม่มีข้อมูลการผลิตที่จะสร้างรายงาน โปรดเพิ่มข้อมูลการผลิตก่อน");
+            console.warn("No production data to generate a report.");
+            alert("No production data to generate a report. Please add production data first.");
             return;
         }
 
@@ -223,7 +223,7 @@ function Dashboard({ onNavigate, onLogout, user, userRole }) {
             console.log("Report generation complete and download initiated.");
         } catch (error) {
             console.error("Error generating report:", error);
-            alert("เกิดข้อผิดพลาดในการสร้างรายงาน: " + error.message);
+            alert("An error occurred while generating the report: " + error.message);
         } finally {
             setLoadingReport(false);
         }
@@ -231,13 +231,13 @@ function Dashboard({ onNavigate, onLogout, user, userRole }) {
 
     const handleExportExcel = async () => {
         if (!canAccessExcel) {
-            console.warn('คุณไม่มีสิทธิ์ในการส่งออก Excel');
-            alert('คุณไม่มีสิทธิ์ในการส่งออก Excel');
+            console.warn('You do not have permission to export Excel.');
+            alert('You do not have permission to export Excel.');
             return;
         }
         if (productions.length === 0) {
-            console.warn("ไม่มีข้อมูลการผลิตที่จะส่งออก Excel.");
-            alert("ไม่มีข้อมูลการผลิตที่จะส่งออก Excel โปรดเพิ่มข้อมูลการผลิตก่อน");
+            console.warn("No production data to export to Excel.");
+            alert("No production data to export to Excel. Please add production data first.");
             return;
         }
 
@@ -247,7 +247,7 @@ function Dashboard({ onNavigate, onLogout, user, userRole }) {
             console.log("Excel export complete and download initiated.");
         } catch (error) {
             console.error("Error exporting Excel:", error);
-            alert("เกิดข้อผิดพลาดในการส่งออก Excel: " + error.message);
+            alert("An error occurred while exporting Excel: " + error.message);
         } finally {
             setLoadingExcel(false);
         }
@@ -273,21 +273,20 @@ function Dashboard({ onNavigate, onLogout, user, userRole }) {
             <div className="bg-gray-800 p-8 rounded-xl shadow-lg w-full max-w-4xl flex flex-col items-center space-y-6">
                 <div className="w-full flex justify-between items-center mb-6">
                     <h1 className="text-4xl font-extrabold text-emerald-300">
-                        แผงควบคุมการผลิต
+                        Production Dashboard
                     </h1>
                     <button
-                        onClick={onLogout}
+                        onClick={onSignout}
                         className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg
-                                     transition duration-300 ease-in-out transform hover:scale-105
-                                     focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-gray-800"
+                                   transition duration-300 ease-in-out transform hover:scale-105
+                                   focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-gray-800"
                     >
-                        ออกจากระบบ
+                        Signout
                     </button>
                 </div>
                 <div className="w-full bg-gray-700 p-6 rounded-lg border border-emerald-700">
-                    <h2 className="text-2xl font-bold text-blue-400 mb-4">รายการการผลิต</h2>
                     {loading.productions ? (
-                        <p className="text-gray-400">กำลังโหลดข้อมูลการผลิต...</p>
+                        <p className="text-gray-400">Loading production data...</p>
                     ) : (
                         <div className="space-y-6">
                             {productions.length > 0 ? (
@@ -308,16 +307,13 @@ function Dashboard({ onNavigate, onLogout, user, userRole }) {
                                                 className="absolute top-3 right-3 bg-red-600 hover:bg-red-700 text-white text-sm font-bold py-1.5 px-3 rounded-md
                                                 opacity-0 group-hover:opacity-100 transition-opacity duration-200 transform hover:scale-105"
                                             >
-                                                ลบ
+                                                Delete
                                             </button>
                                         )}
-                                        <p className="text-gray-300 mb-1">
-                                            <span className="font-semibold text-blue-300">ผู้รับผิดชอบ:</span> {item.responsiblePerson || 'ไม่ได้ระบุ'}
-                                        </p>
                                         <p className="text-gray-300 mb-3">{item.description}</p>
                                         {item.models && item.models.length > 0 && (
                                             <>
-                                                <p className="font-semibold text-gray-300 mt-3 mb-1">รายการรุ่น:</p>
+                                                <p className="font-semibold text-gray-300 mt-3 mb-1">Model List:</p>
                                                 <ul className="list-disc list-inside text-gray-400 space-y-1 ml-4">
                                                     {item.models.map((model, index) => (
                                                         <li key={index}>
@@ -332,7 +328,7 @@ function Dashboard({ onNavigate, onLogout, user, userRole }) {
                                     </div>
                                 ))
                             ) : (
-                                <p className="text-gray-400">ยังไม่มีข้อมูลการผลิต</p>
+                                <p className="text-gray-400">No production data yet.</p>
                             )}
                         </div>
                     )}
@@ -348,7 +344,7 @@ function Dashboard({ onNavigate, onLogout, user, userRole }) {
                                 onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
                                 disabled={!hasProductionData || loadingReport || loadingExcel}
                             >
-                                <option key="report-month--1" value={-1}>ทุกเดือน</option>
+                                <option key="report-month--1" value={-1}>All Months</option>
                                 {availableDates.months
                                     .filter(monthNum => monthNum !== -1)
                                     .map((monthNum) => (
@@ -358,7 +354,7 @@ function Dashboard({ onNavigate, onLogout, user, userRole }) {
                                     ))
                                 }
                                 {availableDates.months.length === 1 && availableDates.months[0] === -1 && productions.length === 0 &&
-                                    <option value="" disabled>ไม่มีข้อมูลเดือน</option>
+                                    <option value="" disabled>No month data</option>
                                 }
                             </select>
                             <select
@@ -367,14 +363,14 @@ function Dashboard({ onNavigate, onLogout, user, userRole }) {
                                 ${!hasProductionData ? 'bg-gray-600 text-gray-400' : 'bg-gray-700 text-white transition duration-300 ease-in-out transform hover:scale-105'}`}
                                 value={selectedYear}
                                 onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-                                disabled={availableDates.years.length <= 1 && availableDates.years[0] === currentYear && !hasProductionData || loadingReport || loadingExcel} // Disabled เมื่อกำลังโหลด Excel ด้วย
+                                disabled={availableDates.years.length <= 1 && availableDates.years[0] === currentYear && !hasProductionData || loadingReport || loadingExcel}
                             >
                                 {availableDates.years.map((year) => (
                                     <option key={`report-year-${year}`} value={year}>
-                                        {year + 543}
+                                        {year}
                                     </option>
                                 ))}
-                                {!hasProductionData && <option value="" disabled>ไม่มีข้อมูลปี</option>}
+                                {!hasProductionData && <option value="" disabled>No year data</option>}
                             </select>
                             <button
                                 className={`font-bold py-4 px-6 rounded-lg transition duration-300 ease-in-out transform flex-1
@@ -383,7 +379,7 @@ function Dashboard({ onNavigate, onLogout, user, userRole }) {
                                 onClick={handleExportReport}
                                 disabled={!hasProductionData || loadingReport || loadingExcel}
                             >
-                                {loadingReport ? 'กำลังสร้าง...' : 'ส่งออกรายงาน'}
+                                {loadingReport ? 'Generating...' : 'Export Report'}
                             </button>
                         </>
                     )}
@@ -398,7 +394,7 @@ function Dashboard({ onNavigate, onLogout, user, userRole }) {
                             onClick={handleExportExcel}
                             disabled={!hasProductionData || loadingReport || loadingExcel}
                         >
-                            {loadingExcel ? 'กำลังส่งออก...' : 'ส่งออก Excel'}
+                            {loadingExcel ? 'Exporting...' : 'Export Excel'}
                         </button>
                     )}
                     {canAccessNewPlan && (
@@ -409,33 +405,33 @@ function Dashboard({ onNavigate, onLogout, user, userRole }) {
                             onClick={() => onNavigate('/new_plan')}
                             disabled={loadingReport || loadingExcel}
                         >
-                            แผนการผลิต
+                            Production
                         </button>
                     )}
                 </div>
                 <div className="w-full bg-gray-700 p-6 rounded-lg border border-emerald-700">
-                    <h2 className="text-2xl font-bold text-blue-400 mb-4">ประกาศสำคัญ</h2>
+                    <h2 className="text-2xl font-bold text-blue-400 mb-4">Important Announcements</h2>
                     {isEditingNews && canManageNews ? (
                         <form onSubmit={handleSaveNews} className="space-y-4">
                             <div>
-                                <label htmlFor="newsTitle" className="block text-gray-300 text-sm font-bold mb-1">หัวข้อ:</label>
+                                <label htmlFor="newsTitle" className="block text-gray-300 text-sm font-bold mb-1">Title:</label>
                                 <input
                                     id="newsTitle"
                                     type="text"
                                     value={currentNews.title}
                                     onChange={(e) => setCurrentNews(prev => ({ ...prev, title: e.target.value }))}
-                                    placeholder="หัวข้อประกาศ"
+                                    placeholder="Announcement Title"
                                     className="p-2 rounded-lg border border-gray-500 bg-gray-700 text-white w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
                                     required
                                 />
                             </div>
                             <div>
-                                <label htmlFor="newsMessage" className="block text-gray-300 text-sm font-bold mb-1">เนื้อหา:</label>
+                                <label htmlFor="newsMessage" className="block text-gray-300 text-sm font-bold mb-1">Content:</label>
                                 <textarea
                                     id="newsMessage"
                                     value={currentNews.message}
                                     onChange={(e) => setCurrentNews(prev => ({ ...prev, message: e.target.value }))}
-                                    placeholder="พิมพ์เนื้อหาประกาศที่นี่..."
+                                    placeholder="Type announcement content here..."
                                     rows="5"
                                     className="p-2 rounded-lg border border-gray-500 bg-gray-700 text-white w-full resize-y focus:outline-none focus:ring-2 focus:ring-blue-500"
                                     required
@@ -445,24 +441,24 @@ function Dashboard({ onNavigate, onLogout, user, userRole }) {
                                 <button
                                     type="submit"
                                     className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-4 rounded-lg flex-grow
-                                             transition duration-300 ease-in-out transform hover:scale-105"
+                                         transition duration-300 ease-in-out transform hover:scale-105"
                                 >
-                                    บันทึก
+                                    Save
                                 </button>
                                 <button
                                     type="button"
                                     onClick={handleCancelEditNews}
                                     className="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg flex-grow
-                                             transition duration-300 ease-in-out transform hover:scale-105"
+                                         transition duration-300 ease-in-out transform hover:scale-105"
                                 >
-                                    ยกเลิก
+                                    Cancel
                                 </button>
                             </div>
                         </form>
                     ) : (
                         <>
                             {loading.news ? (
-                                <p className="text-gray-400">กำลังโหลดประกาศ...</p>
+                                <p className="text-gray-400">Loading announcements...</p>
                             ) : (
                                 <ul className="space-y-3">
                                     {news.length > 0 ? (
@@ -478,7 +474,7 @@ function Dashboard({ onNavigate, onLogout, user, userRole }) {
                                                         className="absolute top-3 right-3 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold py-1.5 px-3 rounded-md
                                                         opacity-0 group-hover:opacity-100 transition-opacity duration-200 transform hover:scale-105"
                                                     >
-                                                        แก้ไข
+                                                        Edit
                                                     </button>
                                                 )}
                                                 {canManageNews && (
@@ -487,24 +483,24 @@ function Dashboard({ onNavigate, onLogout, user, userRole }) {
                                                         className="absolute top-3 right-20 bg-red-600 hover:bg-red-700 text-white text-sm font-bold py-1.5 px-3 rounded-md
                                                         opacity-0 group-hover:opacity-100 transition-opacity duration-200 transform hover:scale-105"
                                                     >
-                                                        ลบ
+                                                        Delete
                                                     </button>
                                                 )}
 
                                                 <h3 className="font-semibold text-purple-300 text-lg mb-2">{item.title}</h3>
                                                 <p className="text-gray-300 whitespace-pre-wrap">
-                                                    {item.message || item.messages?.join('\n') || 'ไม่มีเนื้อหา'}
+                                                    {item.message || item.messages?.join('\n') || 'No content'}
                                                 </p>
                                                 <br />
                                                 {item.createdAt && (
                                                     <p className="text-gray-400 text-sm mb-2">
-                                                        [{new Date(item.createdAt.seconds * 1000).toLocaleDateString('th-TH')}]
+                                                        [{new Date(item.createdAt.seconds * 1000).toLocaleDateString('en-US')}]
                                                     </p>
                                                 )}
                                             </li>
                                         ))
                                     ) : (
-                                        <li className="text-gray-400">ยังไม่มีประกาศใหม่ในขณะนี้</li>
+                                        <li className="text-gray-400">No new announcements at this time.</li>
                                     )}
                                 </ul>
                             )}
@@ -512,10 +508,10 @@ function Dashboard({ onNavigate, onLogout, user, userRole }) {
                                 <button
                                     onClick={() => handleEditNewsClick()}
                                     className="mt-4 bg-yellow-600 hover:bg-yellow-700 text-white font-bold py-2 px-4 rounded-lg w-full
-                                             transition duration-300 ease-in-out transform hover:scale-105
-                                             focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 focus:ring-offset-gray-800"
+                                         transition duration-300 ease-in-out transform hover:scale-105
+                                         focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 focus:ring-offset-gray-800"
                                 >
-                                    เพิ่มประกาศใหม่
+                                    Add New Announcement
                                 </button>
                             )}
                         </>

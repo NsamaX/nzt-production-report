@@ -20,9 +20,9 @@ function Production({ onNavigate }) {
   const [selectedMonth, setSelectedMonth] = useState(today.getMonth());
   const [selectedYear, setSelectedYear] = useState(today.getFullYear());
 
-  const thaiMonths = [
-    'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
-    'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'
+  const englishMonths = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
   ];
 
   const getDaysInMonth = (month, year) => {
@@ -37,7 +37,7 @@ function Production({ onNavigate }) {
   const days = getDaysInMonth(selectedMonth, selectedYear);
   const statusRows = ['Forecast', 'Capacity', 'Capacity + OT', 'Production'];
 
-  const currentDateFormatted = today.toLocaleDateString('th-TH', {
+  const currentDateFormatted = today.toLocaleDateString('en-US', {
     day: 'numeric',
     month: 'long',
     year: 'numeric',
@@ -63,7 +63,7 @@ function Production({ onNavigate }) {
           setSelectedProduction(fetchedProduction);
 
           const currentYear = today.getFullYear();
-          const startYear = 2020;
+          const startYear = 2020; // Assuming data starts from 2020
           const years = [];
           for (let year = startYear; year <= currentYear; year++) {
             years.push(year);
@@ -102,12 +102,12 @@ function Production({ onNavigate }) {
 
         } else {
           console.log("No such document!");
-          alert('ไม่พบข้อมูลการผลิตที่เลือก');
+          alert('Selected production data not found.');
           onNavigate('/dashboard');
         }
       } catch (error) {
         console.error("Error fetching document:", error);
-        alert('เกิดข้อผิดพลาดในการดึงข้อมูลการผลิต: ' + error.message);
+        alert('An error occurred while fetching production data: ' + error.message);
         onNavigate('/dashboard');
       } finally {
         setLoadingProductionData(false);
@@ -198,11 +198,11 @@ function Production({ onNavigate }) {
   const handleKeyPress = (event) => {
     const charCode = event.which ? event.which : event.keyCode;
     if (
-      !(charCode >= 48 && charCode <= 57) &&
-      charCode !== 8 &&
-      charCode !== 46 &&
-      charCode !== 37 &&
-      charCode !== 39
+      !(charCode >= 48 && charCode <= 57) && // Only allow numbers
+      charCode !== 8 && // Backspace
+      charCode !== 46 && // Delete
+      charCode !== 37 && // Left arrow
+      charCode !== 39 // Right arrow
     ) {
       event.preventDefault();
     }
@@ -281,10 +281,10 @@ function Production({ onNavigate }) {
           await updateDoc(productionDocRef, {
             models: updatedModels
           });
-          alert('บันทึกข้อมูลสำเร็จ!');
+          alert('Data saved successfully!');
           setSelectedProduction(prev => ({ ...prev, models: updatedModels }));
         } else {
-          alert('ไม่มีการเปลี่ยนแปลงข้อมูล');
+          alert('No changes to save.');
         }
 
         setEditingCellKey(null);
@@ -293,7 +293,7 @@ function Production({ onNavigate }) {
 
       } catch (error) {
         console.error("Error saving data:", error);
-        alert('เกิดข้อผิดพลาดในการบันทึกข้อมูล: ' + error.message);
+        alert('An error occurred while saving data: ' + error.message);
       }
     } else {
       setOriginalDailyMetrics({
@@ -325,7 +325,7 @@ function Production({ onNavigate }) {
       if (clickedDate <= todayDate) {
         setEditingCellKey(`${modelName}-${statusType}-${day}`);
       } else {
-        alert('ไม่สามารถแก้ไขข้อมูลของวันที่ที่ยังมาไม่ถึงได้');
+        alert('Cannot edit data for future dates.');
       }
     }
   };
@@ -359,7 +359,7 @@ function Production({ onNavigate }) {
   if (loadingProductionData || !selectedProduction) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gray-900 text-white p-4">
-        <p className="text-blue-400 text-xl mb-4">กำลังโหลดข้อมูลการผลิต...</p>
+        <p className="text-blue-400 text-xl mb-4">Loading production data...</p>
       </div>
     );
   }
@@ -371,20 +371,20 @@ function Production({ onNavigate }) {
     <div className="min-h-screen flex flex-col items-center bg-gray-900 text-white p-4">
       <div className="bg-gray-800 p-8 rounded-xl shadow-lg w-full max-w-full overflow-x-auto my-8">
         <h1 className="text-4xl font-extrabold text-center text-emerald-300 mb-6">
-          รายงานการผลิต: {selectedProduction.plant}
+          Production Report: {selectedProduction.plant}
         </h1>
         <div className="flex flex-col items-start md:flex-row md:items-center md:justify-between text-lg text-gray-300 mb-6">
           <p className="text-left mb-4 md:mb-0">
-            <span className="font-semibold text-blue-300">ผู้รับผิดชอบ:</span> {selectedProduction.responsiblePerson || 'ไม่ได้ระบุ'}
+            <span className="font-semibold text-blue-300">Responsible Person:</span> {selectedProduction.responsiblePerson || 'Not specified'}
           </p>
           <div className="flex flex-col items-end">
             <p className="font-bold mb-2">
-              วันนี้: <span className="text-yellow-300">
+              Today: <span className="text-yellow-300">
                 {currentDateFormatted}
               </span>
             </p>
             <div className="flex space-x-2 items-center">
-              <label htmlFor="month-select" className="sr-only">เลือกเดือน</label>
+              <label htmlFor="month-select" className="sr-only">Select Month</label>
               <select
                 id="month-select"
                 className="bg-gray-700 text-white p-2 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -393,11 +393,11 @@ function Production({ onNavigate }) {
               >
                 {monthsToDisplay.map((monthNum) => (
                   <option key={monthNum} value={monthNum}>
-                    {thaiMonths[monthNum]}
+                    {englishMonths[monthNum]}
                   </option>
                 ))}
               </select>
-              <label htmlFor="year-select" className="sr-only">เลือกปี</label>
+              <label htmlFor="year-select" className="sr-only">Select Year</label>
               <select
                 id="year-select"
                 className="bg-gray-700 text-white p-2 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -406,7 +406,7 @@ function Production({ onNavigate }) {
               >
                 {yearsToDisplay.map((year) => (
                   <option key={year} value={year}>
-                    {year + 543}
+                    {year}
                   </option>
                 ))}
               </select>
@@ -418,26 +418,26 @@ function Production({ onNavigate }) {
             <div key={modelIndex} className="mb-8 p-4 bg-gray-700 rounded-lg border border-gray-600">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-2xl font-bold text-blue-400">
-                  รายการรุ่น: {model.name}
+                  Model List: {model.name}
                 </h2>
                 <div className="flex space-x-2">
                   <button
                     onClick={() => toggleModelEditMode(model.name)}
                     className={`py-2 px-4 rounded-lg transition duration-300 ease-in-out transform hover:scale-105
-                                ${editingModelName === model.name ? 'bg-green-500 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}
-                                text-white font-bold focus:outline-none focus:ring-2
-                                ${editingModelName === model.name ? 'focus:ring-green-500 focus:ring-offset-green-800' : 'focus:ring-red-500 focus:ring-offset-red-800'}
-                                `}
+                                 ${editingModelName === model.name ? 'bg-green-500 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}
+                                 text-white font-bold focus:outline-none focus:ring-2
+                                 ${editingModelName === model.name ? 'focus:ring-green-500 focus:ring-offset-green-800' : 'focus:ring-red-500 focus:ring-offset-red-800'}
+                                 `}
                   >
-                    {editingModelName === model.name ? 'บันทึก' : 'แก้ไข'}
+                    {editingModelName === model.name ? 'Save' : 'Edit'}
                   </button>
                   {editingModelName === model.name && (
                     <button
                       onClick={() => handleCancelEdit(model.name)}
                       className="py-2 px-4 rounded-lg transition duration-300 ease-in-out transform hover:scale-105
-                                bg-gray-500 hover:bg-gray-700 text-white font-bold focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-gray-800"
+                                 bg-gray-500 hover:bg-gray-700 text-white font-bold focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-gray-800"
                     >
-                      ยกเลิก
+                      Cancel
                     </button>
                   )}
                 </div>
@@ -448,12 +448,12 @@ function Production({ onNavigate }) {
                   <thead className="bg-gray-600">
                     <tr>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-200 uppercase tracking-wider whitespace-nowrap">
-                        สถานะ
+                        Status
                       </th>
                       {days.map((day) => {
-                         const headerDate = new Date(selectedYear, selectedMonth, day);
-                         const isFutureDate = headerDate > today;
-                         const isCurrentDay = day === today.getDate() && selectedMonth === today.getMonth() && selectedYear === today.getFullYear();
+                          const headerDate = new Date(selectedYear, selectedMonth, day);
+                          const isFutureDate = headerDate > today;
+                          const isCurrentDay = day === today.getDate() && selectedMonth === today.getMonth() && selectedYear === today.getFullYear();
                         return (
                           <th
                             key={day}
@@ -466,7 +466,7 @@ function Production({ onNavigate }) {
                                   ${isFutureDate ? 'bg-gray-700 text-gray-400 cursor-not-allowed' : ''}
                                   `}
                           >
-                            วันที่ {day}
+                            Day {day}
                           </th>
                         );
                       })}
@@ -541,15 +541,15 @@ function Production({ onNavigate }) {
             </div>
           ))
         ) : (
-          <p className="text-gray-400 text-center mt-4">ไม่มีรายการรุ่นสำหรับการผลิตนี้</p>
+          <p className="text-gray-400 text-center mt-4">No model items for this production.</p>
         )}
         <div className="flex justify-end mt-8">
           <button
             onClick={() => onNavigate('/dashboard')}
             className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-6 rounded-lg transition duration-300 ease-in-out transform hover:scale-105
-                                focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-800"
+                                 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-800"
           >
-            กลับสู่แผงควบคุม
+            Back to Dashboard
           </button>
         </div>
       </div>

@@ -5,10 +5,14 @@ import { auth } from '../firebaseConfig';
 const getErrorMessage = (code) => {
   switch (code) {
     case 'auth/user-not-found':
-    case 'auth/wrong-password':    return 'อีเมลหรือรหัสผ่านไม่ถูกต้อง';
-    case 'auth/invalid-email':     return 'รูปแบบอีเมลไม่ถูกต้อง';
-    case 'auth/too-many-requests': return 'พยายามล็อกอินหลายครั้งเกินไป ลองใหม่ภายหลัง';
-    default:                       return 'เกิดข้อผิดพลาดในการเข้าสู่ระบบ';
+    case 'auth/wrong-password':
+      return 'Incorrect email or password.';
+    case 'auth/invalid-email':
+      return 'Invalid email format.';
+    case 'auth/too-many-requests':
+      return 'Too many login attempts. Please try again later.';
+    default:
+      return 'An error occurred during login.';
   }
 };
 
@@ -43,7 +47,7 @@ const SignIn = ({ onSigin }) => {
         </label>
         <input
           type="email"
-          placeholder="ป้อนอีเมล"
+          placeholder="Enter email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           className={inputClass}
@@ -52,7 +56,7 @@ const SignIn = ({ onSigin }) => {
         />
         <input
           type="password"
-          placeholder="ป้อนรหัสผ่าน"
+          placeholder="Enter password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           className={inputClass}
@@ -68,7 +72,7 @@ const SignIn = ({ onSigin }) => {
             focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-800
           "
         >
-          เข้าสู่ระบบ
+          Sign In
         </button>
       </form>
     </div>

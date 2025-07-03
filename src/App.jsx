@@ -108,7 +108,7 @@ function App() {
     if (loadingAuth) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-gray-900 text-white p-4">
-                <p className="text-blue-400">กำลังตรวจสอบสถานะผู้ใช้งาน...</p>
+                <p className="text-blue-400">Checking user status...</p>
             </div>
         );
     }
@@ -122,19 +122,23 @@ function App() {
     }
 
     switch (currentPath) {
-        case '/':           return <SignIn onSignIn={handleSignInSuccess} />;
-        case '/dashboard':  return user ? <Dashboard onNavigate={handleNavigate} onLogout={handleLogout} user={user} userRole={userRole} /> : <SignIn onSignIn={handleSignInSuccess} />;
-        case '/new_plan':   return user ? <NewPlan onNavigate={handleNavigate} onLogout={handleLogout} user={user} userRole={userRole} /> : <SignIn onSignIn={handleSignInSuccess} />;
-        case '/production': return user ? <Production productionId={productionIdFromUrl} onNavigate={handleNavigate} onLogout={handleLogout} user={user} userRole={userRole} /> : <SignIn onSignIn={handleSignInSuccess} />;
+        case '/':
+            return <SignIn onSignIn={handleSignInSuccess} />;
+        case '/dashboard':
+            return user ? <Dashboard onNavigate={handleNavigate} onLogout={handleLogout} user={user} userRole={userRole} /> : <SignIn onSignIn={handleSignInSuccess} />;
+        case '/new_plan':
+            return user ? <NewPlan onNavigate={handleNavigate} onLogout={handleLogout} user={user} userRole={userRole} /> : <SignIn onSignIn={handleSignInSuccess} />;
+        case '/production':
+            return user ? <Production productionId={productionIdFromUrl} onNavigate={handleNavigate} onLogout={handleLogout} user={user} userRole={userRole} /> : <SignIn onSignIn={handleSignInSuccess} />;
         default:
             return (
                 <div className="min-h-screen flex items-center justify-center bg-gray-900 text-white p-4">
-                    <p className="text-red-500">เกิดข้อผิดพลาด: ไม่พบหน้า!</p>
+                    <p className="text-red-500">Error: Page not found!</p>
                     <button
                         onClick={() => handleNavigate('/')}
                         className="mt-4 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg"
                     >
-                        กลับหน้าหลัก
+                        Back to Home
                     </button>
                 </div>
             );
