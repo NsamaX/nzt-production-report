@@ -31,12 +31,11 @@ function Dashboard({ onNavigate, onSignout, user, userRole }) {
 
     const isAdmin = userRole === 'admin';
     const isManager = userRole === 'manager';
-    const isStaff = userRole === 'staff';
 
-    const canAccessPlan = isAdmin || isManager;
-    const canAccessExcel = isAdmin || isManager || isStaff;
-    const canAccessReport = isAdmin || isManager || isStaff;
-    const canManageNews = isAdmin || isManager;
+    const canAccessPlan = isAdmin;
+    const canAccessExcel = isAdmin || isManager;
+    const canAccessReport = isAdmin || isManager;
+    const canManageNews = isAdmin;
 
     useEffect(() => {
         const prodQuery = query(collection(db, 'productions'), orderBy('createdAt', 'desc'));
@@ -353,7 +352,7 @@ function Dashboard({ onNavigate, onSignout, user, userRole }) {
                                 onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
                                 disabled={!hasProdData || reportLoading || excelLoading}
                             >
-                                <option key="report-month--1" value={-1}>ทุกเดือน</option>
+                                <option key="report-month--1" value={-1}>Entire year</option>
                                 {availableDates.months
                                     .filter(monthNum => monthNum !== -1)
                                     .map((monthNum) => (

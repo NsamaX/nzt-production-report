@@ -8,10 +8,10 @@ const MONTH_NAMES_SHORT = [
 ];
 
 const COLORS = {
-    production: 'rgba(21, 128, 61, 0.8)',
-    forecast: 'rgba(54, 162, 235, 0.8)',
-    capacity: 'rgb(255, 99, 132)',
-    capacityOT: 'rgb(153, 102, 255)',
+    production: '#C6E0B3',
+    forecast: '#4574C4',
+    capacity: '#F07730',
+    capacityOT: '#FABC02',
     textColor: '#4A4A4A',
     gridColor: 'rgba(200, 200, 200, 0.3)',
     titleColor: '#2C3E50',

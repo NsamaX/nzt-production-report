@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 
-function Production({ onNavigate }) {
+function Production({ onNavigate, userRole }) {
   const [selectedProduction, setSelectedProduction] = useState(null);
   const [dailyMetrics, setDailyMetrics] = useState({});
   const [editingModelName, setEditingModelName] = useState(null);
@@ -19,6 +19,8 @@ function Production({ onNavigate }) {
   const today = new Date();
   const [selectedMonth, setSelectedMonth] = useState(today.getMonth());
   const [selectedYear, setSelectedYear] = useState(today.getFullYear());
+
+  const canEdit = userRole === 'admin' || userRole === 'staff';
 
   const englishMonths = [
     'January', 'February', 'March', 'April', 'May', 'June',
@@ -63,7 +65,7 @@ function Production({ onNavigate }) {
           setSelectedProduction(fetchedProduction);
 
           const currentYear = today.getFullYear();
-          const startYear = 2020; // Assuming data starts from 2020
+          const startYear = 2020;
           const years = [];
           for (let year = startYear; year <= currentYear; year++) {
             years.push(year);
@@ -198,11 +200,11 @@ function Production({ onNavigate }) {
   const handleKeyPress = (event) => {
     const charCode = event.which ? event.which : event.keyCode;
     if (
-      !(charCode >= 48 && charCode <= 57) && // Only allow numbers
-      charCode !== 8 && // Backspace
-      charCode !== 46 && // Delete
-      charCode !== 37 && // Left arrow
-      charCode !== 39 // Right arrow
+      !(charCode >= 48 && charCode <= 57) &&
+      charCode !== 8 &&
+      charCode !== 46 &&
+      charCode !== 37 &&
+      charCode !== 39
     ) {
       event.preventDefault();
     }
@@ -416,16 +418,18 @@ function Production({ onNavigate }) {
                   Model List: {model.name}
                 </h2>
                 <div className="flex space-x-2">
-                  <button
-                    onClick={() => toggleModelEditMode(model.name)}
-                    className={`py-2 px-4 rounded-lg transition duration-300 ease-in-out transform hover:scale-105
-                                 ${editingModelName === model.name ? 'bg-green-500 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}
-                                 text-white font-bold focus:outline-none focus:ring-2
-                                 ${editingModelName === model.name ? 'focus:ring-green-500 focus:ring-offset-green-800' : 'focus:ring-red-500 focus:ring-offset-red-800'}
-                                 `}
-                  >
-                    {editingModelName === model.name ? 'Save' : 'Edit'}
-                  </button>
+                  {canEdit && (
+                    <button
+                      onClick={() => toggleModelEditMode(model.name)}
+                      className={`py-2 px-4 rounded-lg transition duration-300 ease-in-out transform hover:scale-105
+                                  ${editingModelName === model.name ? 'bg-green-500 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}
+                                  text-white font-bold focus:outline-none focus:ring-2
+                                  ${editingModelName === model.name ? 'focus:ring-green-500 focus:ring-offset-green-800' : 'focus:ring-red-500 focus:ring-offset-red-800'}
+                                  `}
+                    >
+                      {editingModelName === model.name ? 'Save' : 'Edit'}
+                    </button>
+                  )}
                   {editingModelName === model.name && (
                     <button
                       onClick={() => handleCancelEdit(model.name)}
