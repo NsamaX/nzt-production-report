@@ -5,21 +5,23 @@ import { auth } from '../firebaseConfig';
 const getAuthErrorMsg = (code) => {
   switch (code) {
     case 'auth/user-not-found':
-    case 'auth/wrong-password':    return 'Incorrect email or password.';
-    case 'auth/invalid-email':     return 'Invalid email format.';
+    case 'auth/wrong-password':    return 'Incorrect username or password.';
+    case 'auth/invalid-email':     return 'Invalid username format.';
     case 'auth/too-many-requests': return 'Too many login attempts. Please try again later.';
     default:                       return 'An error occurred during login.';
   }
 };
 
 const SignIn = ({ onSignIn }) => {
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState(null);
 
   const handleSignIn = async (e) => {
     e.preventDefault();
     setError(null);
+
+    const email = `${username}@gmail.com`;
 
     try {
       await signInWithEmailAndPassword(auth, email, password);
@@ -42,12 +44,12 @@ const SignIn = ({ onSignIn }) => {
           NZT Production
         </label>
         <input
-          type="email"
-          placeholder="Enter email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          type="text"
+          placeholder="Enter username"
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
           className={inputStyle}
-          aria-label="Email"
+          aria-label="Username"
           required
         />
         <input

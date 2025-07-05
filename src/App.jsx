@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 import { auth, db } from './firebaseConfig';
 
 import SignIn from './page/sign_in';
@@ -18,15 +18,21 @@ function App() {
     const [authLoading, setAuthLoading] = useState(true);
 
     const checkUserRole = async (uid) => {
-        const roles = ['admin', 'manager', 'staff'];
-        for (let role of roles) {
-            const roleDocRef = doc(db, 'roles', role);
-            const roleDocSnap = await getDoc(roleDocRef);
-            if (roleDocSnap.exists() && Array.isArray(roleDocSnap.data().userId) && roleDocSnap.data().userId.includes(uid)) {
-                return role;
+        try {
+            const rolesRef = collection(db, 'roles');
+            const q = query(rolesRef, where('userId', 'array-contains', uid));
+            const querySnapshot = await getDocs(q);
+
+            if (!querySnapshot.empty) {
+                const roleDoc = querySnapshot.docs[0];
+                const roleData = roleDoc.data();
+                return roleData.name || 'staff';
             }
+            return 'staff';
+        } catch (error) {
+            console.error("Error checking user role:", error.message);
+            return 'staff';
         }
-        return 'staff';
     };
 
     useEffect(() => {
