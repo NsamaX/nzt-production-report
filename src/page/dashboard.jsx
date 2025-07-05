@@ -302,22 +302,24 @@ function Dashboard({ onNavigate, onSignout, user, userRole }) {
                                     <div
                                         key={item.id}
                                         className="bg-gray-800 p-5 rounded-lg border border-gray-600 shadow-md
-                                            cursor-pointer hover:bg-gray-700 transition duration-200 ease-in-out relative group"
+                                            cursor-pointer hover:bg-gray-700 transition duration-200 ease-in-out relative"
                                         onClick={() => onNavigate('/production', item.id)}
                                     >
-                                        <h3 className="text-xl font-bold text-emerald-300 mb-2">{item.plant}</h3>
-                                        {isAdmin && (
-                                            <button
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    handleProdDelete(item.id);
-                                                }}
-                                                className="absolute top-3 right-3 bg-red-600 hover:bg-red-700 text-white text-sm font-bold py-1.5 px-3 rounded-md
-                                                opacity-0 group-hover:opacity-100 transition-opacity duration-200 transform hover:scale-105"
-                                            >
-                                                Delete
-                                            </button>
-                                        )}
+                                        <div className="flex justify-between items-center">
+                                            <h3 className="text-xl font-bold text-emerald-300 mb-2">{item.plant}</h3>
+                                            {isAdmin && (
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleProdDelete(item.id);
+                                                    }}
+                                                    className="text-white text-sm font-bold py-1.5 px-3 rounded-md
+                                                    transition duration-200 transform hover:scale-105"
+                                                >
+                                                    Delete
+                                                </button>
+                                            )}
+                                        </div>
                                         <p className="text-gray-300 mb-3">{item.description}</p>
                                         {item.models && item.models.length > 0 && (
                                             <>
