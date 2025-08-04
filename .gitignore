@@ -1,0 +1,67 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Dependency directories
+node_modules
+dist
+dist-ssr
+*.local
+build/
+coverage/
+
+# Environment variables
+.env
+.env.*.local
+.env.local
+
+# Next.js specific (if applicable)
+.next/
+out/
+
+# Nuxt.js specific (if applicable)
+.nuxt/
+.output/
+
+# Gatsby specific (if applicable)
+.cache/
+public/
+
+# SvelteKit specific (if applicable)
+.svelte-kit/
+
+# Vite specific (if applicable)
+.vite/ # Cache ของ Vite
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+*.bak
+*~
+
+# macOS specific
+.Spotlight-V100
+.Trashes
+Icon?
+
+# Thumbs.db
+Thumbs.db
+
+# Other common build artifacts/temp files
+npm-debug.log
+yarn-error.log
+.DS_Store
+.eslintcache
+.prettiercache
